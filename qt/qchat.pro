@@ -1,9 +1,9 @@
 TEMPLATE	= app
-TARGET		= hello
+TARGET		= qchat
 
 CONFIG		+= qt warn_on release
 DEPENDPATH	= ../../include
 
-HEADERS		= hello.h
-SOURCES		= hello.cpp \
-		  main.cpp
+HEADERS		=
+SOURCES		= main.cpp
+
