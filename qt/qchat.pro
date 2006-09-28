@@ -1,8 +1,7 @@
 TEMPLATE	= app
 TARGET		= qchat
 
-CONFIG		+= qt warn_on release
-DEPENDPATH	= ../../include
+CONFIG		+= qt moc warn_on release
 
 HEADERS		=
 SOURCES		= main.cpp
