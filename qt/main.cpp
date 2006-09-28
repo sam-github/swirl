@@ -1,15 +1,23 @@
 #include <qapplication.h>
+#include <qlineedit.h>
 #include <qpushbutton.h>
+#include <qvbox.h>
 
 int main( int argc, char **argv )
 {
-    QApplication a( argc, argv );
+  QApplication a( argc, argv );
 
-    QPushButton hello( "Hello world!", 0 );
-    hello.resize( 100, 30 );
+  QVBox box;
+  QLineEdit edit( &box );
+  QPushButton quit( "Quit", &box );
 
-    a.setMainWidget( &hello );
-    hello.show();
-    return a.exec();
+  box.resize(200,400);
+  quit.resize( 100, 50 );
+
+  QObject::connect(&quit, SIGNAL(clicked()), &a, SLOT(quit()));
+
+  a.setMainWidget( &box );
+  box.show();
+  return a.exec();
 }
 
