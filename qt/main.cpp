@@ -7,7 +7,7 @@
 
 class Chat : public QVBox
 {
-//Q_OBJECT;
+  Q_OBJECT
 
   public:
     Chat(QWidget *parent=0, const char *name=0);
@@ -42,4 +42,6 @@ int main( int argc, char **argv )
   box.show();
   return a.exec();
 }
+
+#include "main.moc"
 
