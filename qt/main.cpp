@@ -6,11 +6,15 @@
 
 x qchat client of 'echo' service
 
-- chat (cmdline) client of beep 'echo' service
+- cchatd server of beep chat service
 
-- qchat using beep
+- chat (cmdline) client of beep chat service
+
+- qchat client of beep chat service
 
 - lchatd (lua chat server) with beep
+
+- lechod (lua echo server) with luasocket
 
 Add the main gui elements - title bar, open, close, save settings, etc.
 
