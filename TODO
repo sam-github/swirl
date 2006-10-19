@@ -7,6 +7,32 @@ Can it NOT return? Will that block other threads?
 
 - vortex_connection_new() returns NULL if on_connected is provided - not documented.
 
+++
+
+What is focus?
+
+GUI?
+
+Qt demo of Vortex? Qt understanding of Tcp?
+
+lua chat server?
+
+Maybe best to work towards a goal --> What does a chat application need?
+
+- not like IM, make it like IRC, so everything goes to everybody
+
+Get single-channel working, but where you choose the server, save the server
+prefs, save whether it should auto-connect, save window settings, save chat history.
+
+
+--> demos Qt ability
+
+- Strip the tcp echo out.
+
+Next, get single-channel working with lua threaded server.
+
+
+++
 
 x qchat client of 'echo' service
 
@@ -24,5 +50,7 @@ x qchat client of 'echo' service
 
 - lechod (lua echo server) with luasocket
 
-Add the main gui elements - title bar, open, close, save settings, etc.
+- Bonjour support
+
+- Add the main gui elements - title bar, open, close, save settings, etc.
 
