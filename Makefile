@@ -9,5 +9,5 @@ qt.run: qt
 
 .PHONY: qt
 qt:
-	$(MAKE) -C qt
+	$(MAKE) -w -C qt
 

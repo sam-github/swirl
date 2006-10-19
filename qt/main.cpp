@@ -2,25 +2,11 @@
 // QSocketNotifier* read, *write;
 // QCustomEvent
 // QApplication::postEvent()
-/*
 
-x qchat client of 'echo' service
-
-- cchatd server of beep chat service
-
-- chat (cmdline) client of beep chat service
-
-- qchat client of beep chat service
-
-- lchatd (lua chat server) with beep
-
-- lechod (lua echo server) with luasocket
-
-Add the main gui elements - title bar, open, close, save settings, etc.
-
-*/
+#define QT_FATAL_ASSERT
 
 #include <qapplication.h>
+#include <qevent.h>
 #include <qlineedit.h>
 #include <qpushbutton.h>
 #include <qsocket.h>
@@ -28,8 +14,7 @@ Add the main gui elements - title bar, open, close, save settings, etc.
 #include <qtextstream.h>
 #include <qvbox.h>
 
-#include <netdb.h>
-#include <stdio.h>
+#include <vortex.h>
 
 class Chat : public QVBox
 {
@@ -39,7 +24,6 @@ class Chat : public QVBox
     QTextEdit* show_;
     QLineEdit* edit_;
     QPushButton* quit_;
-    QSocket* socket_;
 
     void appendInfo(const QString& text)
     {
@@ -47,10 +31,19 @@ class Chat : public QVBox
       show_->append(QString("... %1").arg(text));
       show_->setItalic(FALSE);
     }
-    void appendChat(const char* direction, const QString& text)
+    void appendChat(const QString& direction, const QString& text)
     {
       show_->append( QString("%1 %2").arg(direction).arg(text) );
     }
+
+    // Tcp support
+    QSocket* socket_;
+
+    // Vortex support
+    VortexConnection * connection_;
+    VortexChannel    * channel_;
+    VortexFrame      * frame_;
+    gint               msg_no;
 
   public:
     Chat(QWidget *parent=0, const char *name=0) : QVBox(parent, name)
@@ -60,7 +53,7 @@ class Chat : public QVBox
       edit_ = new QLineEdit(this);
       quit_ = new QPushButton("Quit", this);
 
-      this->resize(200,400);
+      this->resize(600,400);
       // Does this do anything? quit_->resize(100, 50);
 
       show_->setReadOnly(TRUE);
@@ -69,7 +62,7 @@ class Chat : public QVBox
       connect(quit_, SIGNAL(clicked()), qApp, SLOT(quit()));
       connect(edit_, SIGNAL(returnPressed()), this, SLOT(sendMessage()));
 
-      // Net setup:
+      // Tcp setup:
       socket_ = new QSocket( this );
       connect( socket_, SIGNAL(connected()),        SLOT(socketConnected()) );
       connect( socket_, SIGNAL(readyRead()),        SLOT(socketReadyRead()) );
@@ -81,6 +74,138 @@ class Chat : public QVBox
       appendInfo( QString("connect localhost:%1").arg(port) );
 
       socket_->connectToHost( "localhost", port);
+
+
+      // Vortex setup:
+
+      connection_ = vortex_connection_new (
+          "localhost", "44000",
+          onConnectionNew, this
+          );
+
+      Q_ASSERT(!connection_);
+    }
+
+    ~Chat()
+    {
+	vortex_connection_close (connection_);
+    }
+
+  private:
+
+    enum Event
+    {
+      CONNECTION_NEW,    // QCustomEvent, data = connection
+      CHANNEL_CREATED,   // QCustomEvent, data = channel_num
+      CHANNEL_CLOSED,    // QCustomEvent, data = channel_num
+      FRAME_RECEIVED,    // QCustomEvent, data = frame
+      UNUSED
+    };
+
+    static QEvent::Type E(Event event) { return (QEvent::Type) (QEvent::User+event); }
+    static Event E(QEvent::Type event) { return (Event) (event - QEvent::User); }
+
+    void customEvent(QCustomEvent* e)
+    {
+      qDebug("customEvent %u data %p", (int) (e->type() - QEvent::User), e->data());
+
+      switch(E(e->type()))
+      {
+        case CONNECTION_NEW:
+          connection_ = (VortexConnection*) e->data();
+
+          if (!vortex_connection_is_ok (connection_, false)) {
+            appendInfo ( QString("Vortex - connection failed, %1")
+                .arg(vortex_connection_get_message(connection_))
+                );
+            return;
+          }
+          appendInfo("Vortex - connected");
+
+          // FIXME - need a common header
+#define PLAIN_PROFILE "http://fact.aspl.es/profiles/plain_profile"
+
+          channel_ = vortex_channel_new (connection_, 0,
+              PLAIN_PROFILE,
+              onChannelClosed, this,
+              onFrameReceive, this,
+              onChannelCreated, this
+              );
+
+          Q_ASSERT(!channel_);
+
+          break;
+
+        case CHANNEL_CREATED:
+          channel_ = vortex_connection_get_channel(connection_, (gint) e->data());
+          appendInfo("Vortex - channel created");
+          break;
+
+        case CHANNEL_CLOSED:
+          appendInfo("Vortex - channel closed");
+          break;
+
+        case FRAME_RECEIVED:
+          {
+            VortexFrame* frame = (VortexFrame*) e->data();
+
+            appendChat(
+                QString("%1/%2>")
+                  .arg(vortex_frame_get_type(frame))
+                  .arg(vortex_frame_get_content_type(frame)),
+                vortex_frame_get_payload(frame));
+          }
+          break;
+
+        case UNUSED: break;
+      }
+    }
+
+    static void onConnectionNew(VortexConnection* connection, gpointer vdata)
+    {
+      Chat* self = (Chat*) vdata;
+
+      qDebug("onConnectionNew %p", connection);
+
+      QApplication::postEvent(self, new QCustomEvent(E(CONNECTION_NEW), connection));
+    }
+
+    static void onChannelCreated(gint channel_num, VortexChannel* channel, gpointer vdata)
+    {
+      Chat* self = (Chat*) vdata;
+
+      (void) channel;
+
+      qDebug("onChannelCreated %d", channel_num);
+
+      QApplication::postEvent(self, new QCustomEvent(E(CHANNEL_CREATED), (void*)channel_num));
+    }
+
+    static gboolean onChannelClosed(gint channel_num, VortexConnection* connection, gpointer vdata)
+    {
+      Chat* self = (Chat*) vdata;
+
+      (void) connection;
+
+      QApplication::postEvent(self, new QCustomEvent(E(CHANNEL_CLOSED), (void*)channel_num));
+
+      return true;
+    }
+
+    static void onFrameReceive(
+        VortexChannel* channel, VortexConnection* connection, VortexFrame* frame, gpointer vdata
+        )
+    {
+      Chat* self = (Chat*) vdata;
+
+      (void) connection;
+      (void) channel;
+
+      frame = vortex_frame_copy(frame);
+
+      Q_ASSERT(frame);
+
+      QApplication::postEvent(self, new QCustomEvent(E(FRAME_RECEIVED), frame));
     }
 
     public slots:
@@ -88,8 +213,15 @@ class Chat : public QVBox
       {
         appendChat("<", edit_->text());
 
+        // TCP send
         QTextStream os(socket_);
         os << edit_->text() << "\n";
+
+        // Beep send
+        if(channel_) {
+          gint ok = vortex_channel_send_msgv(channel_, NULL, "%s", edit_->text().latin1());
+          Q_ASSERT(ok);
+        }
 
         edit_->setText("");
       }
@@ -140,7 +272,11 @@ class Chat : public QVBox
 
 int main( int argc, char **argv )
 {
+  vortex_init ();
+
   QApplication a( argc, argv );
+
+  qDebug("-- qchat start");
 
   Chat box;
 

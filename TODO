@@ -1,0 +1,28 @@
+Note:
+
+- VortexOnCloseChannel ... must return true/false, so is not so useful if you have
+to post it's result to a new thread.
+
+Can it NOT return? Will that block other threads?
+
+- vortex_connection_new() returns NULL if on_connected is provided - not documented.
+
+
+x qchat client of 'echo' service
+
+- cchatd server of beep chat service
+    ... this is the vortex echo-server, except instead of sending data in
+    reply, it should send it with MSG, and wait for RPY.
+
+- chat (cmdline) client of beep chat service
+    ... should reimplement in a non-blocking way. I'll need this
+    to play with the client
+
+- qchat client of beep chat service
+
+- lchatd (lua chat server) with beep
+
+- lechod (lua echo server) with luasocket
+
+Add the main gui elements - title bar, open, close, save settings, etc.
+

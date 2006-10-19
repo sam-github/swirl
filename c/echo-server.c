@@ -13,7 +13,7 @@ void frame_received (VortexChannel    * channel,
 	// reply the peer client with the same content
 	vortex_channel_send_rpyv (channel,
 				  vortex_frame_get_msgno (frame),
-				  "Received Ok: %s",
+				  "%s",
 				  vortex_frame_get_payload (frame));
 				
 	g_print ("VORTEX_LISTENER: end task (pid: %d)\n", getpid ());
