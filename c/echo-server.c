@@ -26,10 +26,15 @@ gboolean start_channel (gint               channel_num,
 			VortexConnection * connection, 
 			gpointer           user_data)
 {
-	// implement profile requirement for allowing starting a new channel
 
-	// to return FALSE denies channel creation
-	// to return TRUE allows create the channel
+  VortexChannel* channel = vortex_connection_get_channel(connection, channel_num);
+	
+  g_print("channel start %d - features=%s profile=%s\n",
+      channel_num,
+      vortex_connection_get_features(channel),
+      vortex_channel_get_profile(channel)
+      );
+
 	return TRUE;
 }
 
@@ -40,6 +45,9 @@ gboolean close_channel (gint               channel_num,
 	// implement profile requirement for allowing to closeing a the channel
 	// to return FALSE denies channel closing
 	// to return TRUE allows to close the channel
+
+  vortex_exit();
+
 	return TRUE;
 }
 

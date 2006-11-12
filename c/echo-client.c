@@ -40,6 +40,8 @@ gint main (gint argc, gchar ** argv)
 		goto end;
 	}
 
+        for(;;)
+        {
 	 // create a wait reply 
 	wait_reply = vortex_channel_create_wait_reply ();
      
@@ -63,6 +65,7 @@ gint main (gint argc, gchar ** argv)
 	g_print ("my reply have arrived: (size: %d):\n%s\n", 
 		 vortex_frame_get_payload_size (frame), 
 		 vortex_frame_get_payload (frame));
+        }
 
  end:				      
 	vortex_connection_close (connection);

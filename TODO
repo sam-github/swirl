@@ -1,11 +1,33 @@
 Note:
 
-- VortexOnCloseChannel ... must return true/false, so is not so useful if you have
-to post it's result to a new thread.
+- vortex_greetings_send: docs are the copyright!
 
-Can it NOT return? Will that block other threads?
+- vortex_listener_new(): host, port should be const gchar*? And why is
+  port a string? I would understand if it could be a port number, or a
+  service that was mapped to a string, but it just gets strtol() called
+  on it, unless I misread.
 
-- vortex_connection_new() returns NULL if on_connected is provided - not documented.
+- vortex_channel_send_rpy(): ... actually, it appears const isn't used
+  anywhere, why not?
+
+- profiles_register(): uri is strduped, contrary to docs, so it could be
+  const gchar* (also, it doesn't appear to be freed)
+
+- is calling vortex_exit() in a callback the right way to stop  the
+  listener? When I do it in the channel close callback, the client never
+  seems to get clean shutdown.
+
+- does BEEP allow discovery of a peer that has died? the simple client
+  and server never timeout when the other side crashes.
+
+- shouldn't the connection accept callback be associated with a profile,
+  instead of global?
+
+- vortex_color_log_enable: where does the log go?
+
+- VortexOnStartChannelExtended: no way to set the encoding for profile_content_reply?
+  Also, profile_content_reply is freed with g_free (undocumented but
+  semi-obvious), can it have been allocated with strdup()?
 
 ++
 

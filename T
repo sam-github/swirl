@@ -1,12 +1,9 @@
 #!/bin/sh
 
 V=~/p/beep/vortex/vortex-0.9.0.b2134.g2134/src
-#L=~/p/lua/local
-L=./local
 
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $V $L *.c
-
+ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm . $V
 

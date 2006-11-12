@@ -3,9 +3,12 @@ O = $(X:.c=.o)
 
 L=vortex.so
 
+do: build
+	$(MAKE) -C ../c
+
 build: $L
 
-LDLIBS= -g
+LDFLAGS= -g
 CFLAGS= -g -Wall -Werror
 
 # Vortex flags
