@@ -13,12 +13,13 @@ gint main (gint argc, gchar ** argv)
 	// init vortex library
 	vortex_init ();
 
+        vortex_color_log_enable(TRUE);
 
 	// creates a new connection against localhost:44000
-	g_print ("connecting to localhost:44000...");
+	g_print ("connecting to localhost:44000...\n");
 	connection = vortex_connection_new ("localhost", "44000", NULL, NULL);
 	if (!vortex_connection_is_ok (connection, FALSE)) {
-		g_print ("Unable to connect remote server, error was: %s",
+		g_print ("Unable to connect remote server, error was: %s\n",
 			 vortex_connection_get_message (connection));
 		goto end;
 	}
@@ -35,7 +36,7 @@ gint main (gint argc, gchar ** argv)
 				      // no async channel creation
 				      NULL, NULL);
 	if (channel == NULL) {
-		g_print ("Unable to create the channel..");
+		g_print ("Unable to create the channel..\n");
 		goto end;
 	}
 
@@ -59,7 +60,7 @@ gint main (gint argc, gchar ** argv)
 		vortex_channel_close (channel, NULL);
 		goto end;
 	}
-	g_print ("my reply have arrived: (size: %d):\n%s", 
+	g_print ("my reply have arrived: (size: %d):\n%s\n", 
 		 vortex_frame_get_payload_size (frame), 
 		 vortex_frame_get_payload (frame));
 
