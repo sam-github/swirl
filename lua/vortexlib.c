@@ -130,9 +130,6 @@ Example:
 */
 static int v_channel_send_rpy(lua_State* L)
 {
-  v_debug_stack(L);
-
-  {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = luaL_checkinteger(L, 2);
   const char* payload = NULL;
@@ -158,7 +155,6 @@ static int v_channel_send_rpy(lua_State* L)
     luaL_error(L, "vortex_channel_send_rpy");
 
   return 0;
-  }
 }
 
 static const struct luaL_reg v_channel_methods[] = {
@@ -195,15 +191,7 @@ static int v_frame_msgno(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
-
   lua_pushinteger(L, (int) vortex_frame_get_msgno(*ud));
-
-  {
-    int msgno = lua_tointeger(L, -1);
-    v_debug("frame:msgno() => %d/%d", vortex_frame_get_msgno(*ud), msgno);
-    v_debug_stack(L);
-  }
-
   return 1;
 }
 
@@ -216,9 +204,7 @@ static int v_frame_payload(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
-
   lua_pushlstring(L, vortex_frame_get_payload(*ud), vortex_frame_get_payload_size(*ud));
-
   return 1;
 }
 
@@ -518,28 +504,6 @@ static int v_profiles_register(lua_State* L)
 }
 
 /*-
--- vortex:init()
-Initialize the vortex library.
-
-Calling multiple times has no effect.
-*/
-static int v_init(lua_State* L)
-{
-  lua_getfield(L, 1, "_profiles");
-
-  if(!lua_isnil(L, -1)) {
-    return 0;
-  }
-
-  lua_newtable(L);
-  lua_setfield(L, 1, "_profiles");
-
-  vortex_init();
-
-  return 0;
-}
-
-/*-
 -- vortex:exit()
 Deinitialize the vortex library.
 */
@@ -594,7 +558,6 @@ static int v_listener_wait(lua_State* L)
 }
 
 static const struct luaL_reg v_methods[] = {
-  { "init",               v_init },
   { "exit",               v_exit },
   { "profiles_register",  v_profiles_register },
   { "listener_new",       v_listener_new },
@@ -606,7 +569,7 @@ static const struct luaL_reg v_methods[] = {
 void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg methods[])
 {
   luaL_newmetatable(L, regid);
-  luaL_openlib(L, NULL, methods, 0);
+  luaL_register(L, NULL, methods);
   lua_pushvalue(L, -1);
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
@@ -614,10 +577,18 @@ void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg meth
 
 int luaopen_vortex(lua_State* L) 
 {
+  (void) v_debug_stack;
+
   v_obj_metatable(L, V_FRAME_REGID, v_frame_methods);
   v_obj_metatable(L, V_CHANNEL_REGID, v_channel_methods);
 
   luaL_register(L, V_MAIN, v_methods);
+
+  /* vortex._profiles = {} */
+  lua_newtable(L);
+  lua_setfield(L, -2, "_profiles");
+
+  vortex_init();
 
   LOCK()
 

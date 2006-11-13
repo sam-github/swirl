@@ -2,8 +2,6 @@ require"vortex"
 
 users = {}
 
-vortex:init()
-
 print("register: ".."http://beep.ensembleindependant.org/profiles/chat")
 
 vortex:profiles_register{ 
