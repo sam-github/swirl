@@ -48,11 +48,41 @@ SOFTWARE.
 
 #define V_MAIN  "vortex"
 
+/*
+Used to protect the lua state from callbacks. Only one active thread is allowed
+to access the state at any one time, the main lua chunk must explicitly make it
+available with vortex:listener_wait().
+*/
 static
 pthread_mutex_t v_lua_enter = PTHREAD_MUTEX_INITIALIZER;
 
-#define LOCK() {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
-#define UNLOCK() {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);}
+#define LOCK() {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);} v_stack_invariant(L);
+#define UNLOCK() v_stack_invariant(L); {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);}
+
+/*
+When the lua stack is unlocked the vortex threads can make callbacks. To make
+this process a bit simpler, the stack is pre-setup with some useful entries
+before unlocking, and all callbacks should preserve this invariant.
+
+  [1] vortex{}      the vortex module table
+  [2] _profiles{}   the table of registered profiles
+                        key is a URI string
+                        value is the table registered
+  [3] _objects{}    the table of vortex objects
+                        key is lightuserdata of the underlying toolkit object's address
+                        value is the lua userdata object
+*/
+
+/* Check lua stack invariant. */
+void v_stack_invariant(lua_State* L)
+{
+  g_assert(lua_gettop(L) == 3);
+  g_assert(lua_type(L, 1) == LUA_TTABLE);
+  g_assert(lua_type(L, 2) == LUA_TTABLE);
+  g_assert(lua_type(L, 3) == LUA_TTABLE);
+}
+
+
 
 #define BSTR(x) ((x) ? 't' : 'f')
 
@@ -624,6 +654,9 @@ Will return when vortex:exit() is called.
 */
 static int v_listener_wait(lua_State* L)
 {
+  lua_getfield(L, 1, "_profiles");
+  lua_getfield(L, 1, "_objects");
+  
   UNLOCK();
 
   vortex_listener_wait();
@@ -669,7 +702,7 @@ int luaopen_vortex(lua_State* L)
 
   vortex_init();
 
-  LOCK()
+  {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
 
   return 1;
 }
