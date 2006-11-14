@@ -550,20 +550,65 @@ int v_exit(lua_State* L)
   return 0;
 }
 
+/*
+Get field from arg table, errors if argt is not a table, returns
+0 if field not found, otherwise pushes field value and returns
+index.
+*/
+static
+int v_arg(lua_State* L, int argt, const char* field)
+{
+  luaL_checktype(L, argt, LUA_TTABLE);
+
+  lua_getfield(L, argt, field);
+
+  if(lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+    return 0;
+  }
+  return lua_gettop(L);
+}
+
+static
+const char* v_arg_string(lua_State* L, int argt, const char* field, const char* def)
+{
+  if(!v_arg(L, argt, field))
+  {
+    if(def) {
+      lua_pushstring(L, def);
+      return lua_tostring(L, -1);
+    } else {
+      const char* msg = lua_pushfstring(L, "%s is missing", field);
+      luaL_argerror(L, argt, msg);
+    }
+  }
+
+  if(!lua_tostring(L, -1)) {
+    const char* msg = lua_pushfstring(L, "%s is not a string", field);
+    luaL_argerror(L, argt, msg);
+  }
+
+  return lua_tostring(L, -1);
+}
+
 /*-
--- vortex:listener_new(host, port)
+-- vortex:listener_new{host=str, port=num}
 
-Host should usually be "0.0.0.0", INADDR_ANY.
+Creates a new listener on host and port.
 
-TODO - accept a table of callbacks: on_ready, on_accept.
+Host is optional, it defaults to INADDR_ANY ("0.0.0.0").
+*/
+/*-
+TODO - accept a table of arguments:
+  on_ready=
+  on_accept=
+
+TODO - all callback functions called on_? on_start, on_close, on_frame, ...
 */
 static int v_listener_new(lua_State* L)
 {
-  const char* host = luaL_checkstring(L, 2);
-  const char* port = luaL_checkstring(L, 3);
-
-  luaL_argcheck(L, strlen(host), 2, "host is null");
-  luaL_argcheck(L, strlen(port), 3, "port is null");
+  const char* host = v_arg_string(L, 2, "host", "0.0.0.0");
+  const char* port = v_arg_string(L, 2, "port", 0);
 
   vortex_listener_new((gchar*)host, (gchar*)port, NULL, NULL);
 
@@ -605,7 +650,6 @@ void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg meth
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 }
-
 int luaopen_vortex(lua_State* L) 
 {
   (void) v_debug_stack;

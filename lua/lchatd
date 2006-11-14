@@ -34,7 +34,7 @@ vortex:profiles_register{
   end,
 }
 
-vortex:listener_new("0.0.0.0", 44000)
+vortex:listener_new{port=44000}
 
 --[[, {
   ready = function () print "ready..." end,
