@@ -1,6 +1,6 @@
-require"vortex"
+#!./local/lua
 
-users = {}
+require"vortex"
 
 print("register: ".."http://beep.ensembleindependant.org/profiles/chat")
 
@@ -45,3 +45,4 @@ vortex:listener_wait()
 
 print"listener wait done"
 
+-- vim:ft=lua:
