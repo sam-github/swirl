@@ -588,6 +588,10 @@ int luaopen_vortex(lua_State* L)
   lua_newtable(L);
   lua_setfield(L, -2, "_profiles");
 
+  /* vortex._objects = {} */
+  lua_newtable(L);
+  lua_setfield(L, -2, "_objects");
+
   vortex_init();
 
   LOCK()
