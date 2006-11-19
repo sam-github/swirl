@@ -244,6 +244,9 @@ void v_encoding_push(lua_State*L, VortexEncoding encoding)
 
 /** connections **/
 
+// APIs:
+//   connection:remote_profiles() vortex_connection_get_remote_profiles
+
 static
 void v_connection_push(lua_State* L, VortexConnection* connection)
 {
@@ -258,6 +261,14 @@ void v_connection_close(lua_State* L, VortexConnection* connection)
   remove all channel UD from registry, if there, and mark destroyed
 }
 */
+
+static
+gboolean v_on_connection_accepted(VortexConnection * connection, gpointer data)
+{
+  v_debug("->connection accept %p\n", connection);
+
+  return TRUE;
+}
 
 
 /** channel support **/
@@ -294,10 +305,14 @@ static void v_channel_clear(lua_State* L, int idx)
   *ud = NULL;
 }
 
+
 static void v_channel_collect(lua_State* L, VortexChannel* channel)
 {
+/*
+Look channel up in _objects, and clear it.
   VortexChannel** ud = luaL_checkudata(L, idx, V_CHANNEL_REGID);
   *ud = NULL;
+*/
 }
 
 /*-
@@ -393,7 +408,7 @@ Errors on failure.
 Example:
   channel:send_err(frame:msgno())
 */
-static int v_channel_send_rpy(lua_State* L)
+static int v_channel_send_err(lua_State* L)
 {
   return v_channel_send_(L, vortex_channel_send_err, "send_err");
 }
@@ -416,7 +431,7 @@ channel:send_nul(msgno)
 */
 static int v_channel_send_ans(lua_State* L)
 {
-  return v_channel_send_(L, vortex_channel_send_ans, "send_ans");
+  return v_channel_send_(L, vortex_channel_send_ans_rpy, "send_ans");
 }
 
 /*-
@@ -432,7 +447,7 @@ Example:
   end
 channel:send_nul(msgno)
 */
-static int v_channel_send_ans(lua_State* L)
+static int v_channel_send_nul(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = luaL_checkinteger(L, 2);
@@ -614,7 +629,6 @@ gboolean v_on_close_channel (
   VortexChannel* channel = vortex_connection_get_channel(connection, channel_num);
   const char* profile = vortex_channel_get_profile(channel);
   gboolean ok = TRUE;
-  int top = 0;
 
   LOCK();
 
@@ -801,6 +815,7 @@ static int v_listener_wait(lua_State* L)
 }
 
 static const struct luaL_reg v_methods[] = {
+  // listener_unblock
   { "exit",               v_exit },
   { "profiles_register",  v_profiles_register },
   { "listener_new",       v_listener_new },
@@ -834,11 +849,13 @@ int luaopen_vortex(lua_State* L)
   lua_newtable(L);
   lua_setfield(L, -2, "_objects");
 
-  vortex_init();
-
   {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
 
-  v_debug_stack(L);
+  vortex_init();
+
+  vortex_listener_set_on_connection_accepted(v_on_connection_accepted, NULL);
+
+  //v_debug_stack(L);
 
   return 1;
 }
