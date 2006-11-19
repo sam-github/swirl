@@ -217,6 +217,21 @@ static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
 /** miscellaneous light weight vortex objects **/
 
 static
+void v_frametype_push(lua_State*L, VortexFrameType frametype)
+{
+  switch(frametype)
+  {
+    case VORTEX_FRAME_TYPE_MSG: lua_pushstring(L, "msg"); break;
+    case VORTEX_FRAME_TYPE_RPY: lua_pushstring(L, "rpy"); break;
+    case VORTEX_FRAME_TYPE_ANS: lua_pushstring(L, "ans"); break;
+    case VORTEX_FRAME_TYPE_ERR: lua_pushstring(L, "err"); break;
+    case VORTEX_FRAME_TYPE_NUL: lua_pushstring(L, "nul"); break;
+    case VORTEX_FRAME_TYPE_SEQ: lua_pushstring(L, "seq"); break;
+    default:             lua_pushstring(L, "unknown"); break;
+  }
+}
+
+static
 void v_encoding_push(lua_State*L, VortexEncoding encoding)
 {
   switch(encoding)
@@ -247,6 +262,21 @@ void v_connection_close(lua_State* L, VortexConnection* connection)
 
 /** channel support **/
 
+
+// add to vortex._objects!
+// don't create a new one if there is one in _objects
+// in _collect, find any objects, and clear them
+//
+// other than the REGID, and external types, this handling is the same
+// for both channel and connection objects
+//
+// what about frame objects? it appears that they have reference
+// to a channel, so any frame references to this channel also need
+// to be found and cleared! Are all frames known to the vortex library?
+//
+// actually, if the frame NEVER touches it's channel member, except
+// to return it, we can use channel_find() to see if the channel is still
+// alive, and return nil if it isn't... or something.
 static void v_channel_push(lua_State* L, VortexChannel* channel)
 {
   VortexChannel** ud = lua_newuserdata(L, sizeof(channel));
@@ -264,19 +294,52 @@ static void v_channel_clear(lua_State* L, int idx)
   *ud = NULL;
 }
 
+static void v_channel_collect(lua_State* L, VortexChannel* channel)
+{
+  VortexChannel** ud = luaL_checkudata(L, idx, V_CHANNEL_REGID);
+  *ud = NULL;
+}
+
 /*-
--- channel:send_rpy(msgno, ...)
+-- msgno = channel:send_msg(msgno, ...)
 
-Send reply to msgno on channel.
+Send msg on channel, return value is msgno for this message.
 
-Reply payload is concatenation of ...
+Payload is concatenation of ...
 
 Errors on failure.
 
 Example:
-  channel:send_rpy(frame:msgno(), "reply to msg#", frame:msgno())
+  msgno = channel:send_msg("it is ", os.date(), " here")
 */
-static int v_channel_send_rpy(lua_State* L)
+static int v_channel_send_msg(lua_State* L)
+{
+  VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
+  int msgno = -1;
+  const char* payload = NULL;
+  size_t payload_sz = 0;
+  gboolean ok = TRUE;
+
+  luaL_argcheck(L, *ud, 1, "channel has been collected");
+
+  lua_concat(L, lua_gettop(L) - 1);
+
+  payload = lua_tolstring(L, -1, &payload_sz);
+
+  ok = vortex_channel_send_msg(*ud,(gchar*)payload, payload_sz, &msgno);
+
+  v_debug("channel(#%d):send_msg() => %c, %d",
+      vortex_channel_get_number(*ud), BSTR(ok), msgno);
+
+  if(!ok)
+    luaL_error(L, "vortex_channel_send_msg");
+
+  lua_pushinteger(L, msgno);
+  return 1;
+}
+
+/* common implementation of send_err, send_rpy, send_ans */
+static int v_channel_send_(lua_State* L, gboolean (*fn)(VortexChannel*, gchar*, gint, gint), const char* fn_name)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = luaL_checkinteger(L, 2);
@@ -285,29 +348,115 @@ static int v_channel_send_rpy(lua_State* L)
   gboolean ok = TRUE;
 
   luaL_argcheck(L, *ud, 1, "channel has been collected");
-  luaL_argcheck(L, lua_gettop(L) > 2, 3, "payload not provided");
 
   lua_concat(L, lua_gettop(L) - 2);
 
   payload = lua_tolstring(L, -1, &payload_sz);
 
-//v_debug("channel(#%d):send_rpy(%d, %s)",
-//    vortex_channel_get_number(*ud), msgno, payload, BSTR(ok));
+  ok = fn(*ud,(gchar*)payload, payload_sz, msgno);
 
-  ok = vortex_channel_send_rpy(*ud,(gchar*)payload, payload_sz, msgno);
-
-  v_debug("channel(#%d):send_rpy(%d) => %c",
-      vortex_channel_get_number(*ud), msgno, BSTR(ok));
+  v_debug("channel(#%d):%s(%d) => %c",
+      vortex_channel_get_number(*ud), fn_name, msgno, BSTR(ok));
 
   if(!ok)
-    luaL_error(L, "vortex_channel_send_rpy");
+    luaL_error(L, "vortex_channel_%s", fn_name);
+
+  return 0;
+}
+
+/*-
+-- channel:send_rpy(msgno, ...)
+
+Send reply to msgno on channel.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  channel:send_rpy(frame:msgno(), "reply to msg#", frame:msgno())
+*/
+static int v_channel_send_rpy(lua_State* L)
+{
+  return v_channel_send_(L, vortex_channel_send_rpy, "send_rpy");
+}
+
+/*-
+-- channel:send_err(msgno, ...)
+
+Send error reply to msgno on channel.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  channel:send_err(frame:msgno())
+*/
+static int v_channel_send_rpy(lua_State* L)
+{
+  return v_channel_send_(L, vortex_channel_send_err, "send_err");
+}
+
+/*-
+-- channel:send_ans(msgno, ...)
+
+Send one in a series of replies to msgno on channel. Call channel:send_nul()
+when all replies in series have been sent.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  while block = io:read(4096) do
+    channel:send_ans(msgno, block)
+  end
+channel:send_nul(msgno)
+*/
+static int v_channel_send_ans(lua_State* L)
+{
+  return v_channel_send_(L, vortex_channel_send_ans, "send_ans");
+}
+
+/*-
+-- channel:send_nul(msgno)
+
+Send notification that a series of ans replies are complete.
+
+Errors on failure.
+
+Example:
+  while block = io:read(4096) do
+    channel:send_ans(msgno, block)
+  end
+channel:send_nul(msgno)
+*/
+static int v_channel_send_ans(lua_State* L)
+{
+  VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
+  int msgno = luaL_checkinteger(L, 2);
+  gboolean ok = TRUE;
+
+  luaL_argcheck(L, *ud, 1, "channel has been collected");
+
+  ok = vortex_channel_finalize_ans_rpy(*ud, msgno);
+
+  v_debug("channel(#%d):%s(%d) => %c",
+      vortex_channel_get_number(*ud), "send_nul", msgno, BSTR(ok));
+
+  if(!ok)
+    luaL_error(L, "vortex_channel_%s", "send_nul");
 
   return 0;
 }
 
 static const struct luaL_reg v_channel_methods[] = {
-//  { "__gc",               obj_gc },
+  { "send_msg",           v_channel_send_msg },
   { "send_rpy",           v_channel_send_rpy },
+  { "send_err",           v_channel_send_err },
+  { "send_ans",           v_channel_send_ans },
+  { "send_nul",           v_channel_send_nul },
   { NULL, NULL }
 };
 
@@ -331,6 +480,28 @@ static void v_frame_clear(lua_State* L, int idx)
 {
   VortexFrame** ud = luaL_checkudata(L, idx, V_FRAME_REGID);
   *ud = NULL;
+}
+
+/*-
+-- type = frame:type()
+
+Get type of a frame:
+- "msg": this frame should be replied to with channel:send_rpy(), send_ans(), or send_err()
+- "rpy": this frame is a complete success reply to an earlier "msg" frame
+- "ans": this frame is one in a series of success replies to a "msg" frame
+- "nul": this frame is last in a series of success replies to a "msg" frame
+- "err": this frame is a failure reply to an earlier "msg" frame
+- "seq": an internal frame type, should never be seen?
+- "unknown": an error, should never be seen?
+
+Ref: vortex_frame_get_type()
+*/
+static int v_frame_type(lua_State* L)
+{
+  VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
+  luaL_argcheck(L, *ud, 1, "frame has been collected");
+  v_frametype_push(L, vortex_frame_get_type(*ud));
+  return 1;
 }
 
 /*-
@@ -361,6 +532,7 @@ static int v_frame_payload(lua_State* L)
 
 static const struct luaL_reg v_frame_methods[] = {
 //  { "__gc",               obj_gc },
+  { "type",               v_frame_type },
   { "msgno",              v_frame_msgno },
   { "payload",            v_frame_payload },
   { NULL, NULL }
@@ -442,6 +614,7 @@ gboolean v_on_close_channel (
   VortexChannel* channel = vortex_connection_get_channel(connection, channel_num);
   const char* profile = vortex_channel_get_profile(channel);
   gboolean ok = TRUE;
+  int top = 0;
 
   LOCK();
 
@@ -454,6 +627,8 @@ gboolean v_on_close_channel (
     if(0 == v_pcall(L, "channel->close", 2, 1))
       ok = lua_toboolean(L, -1);
   }
+
+  v_channel_collect(L, channel);
 
   UNLOCK();
 
