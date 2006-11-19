@@ -43,8 +43,9 @@ SOFTWARE.
 
 #include <vortex.h>
 
-#define V_FRAME_REGID   "VortexFrame"   //"0C5353ED-6DD0-11DB-852B-000393AD088C"
-#define V_CHANNEL_REGID "VortexChannel" //"363C4518-6DFB-11DB-9133-000393AD088C"
+#define V_FRAME_REGID      "VortexFrame"      //"0C5353ED-6DD0-11DB-852B-000393AD088C"
+#define V_CHANNEL_REGID    "VortexChannel"    //"363C4518-6DFB-11DB-9133-000393AD088C"
+#define V_CONNECTION_REGID "VortexConnection"
 
 #define V_MAIN  "vortex"
 
@@ -250,25 +251,80 @@ void v_encoding_push(lua_State*L, VortexEncoding encoding)
 static
 void v_connection_push(lua_State* L, VortexConnection* connection)
 {
-  lua_pushlightuserdata(L, connection);
+  VortexConnection** ud = lua_newuserdata(L, sizeof(connection));
+  *ud = NULL;
+
+  luaL_getmetatable(L, V_CONNECTION_REGID);
+  lua_setmetatable(L, -2);
+
+  *ud = connection;
 }
 
-/*
 static
-void v_connection_close(lua_State* L, VortexConnection* connection)
+void v_on_connection_closed(VortexConnection* connection, gpointer data)
 {
+  v_debug("->connection close %p %s %s\n",
+      connection,
+      vortex_connection_get_host(connection),
+      vortex_connection_get_port(connection)
+      );
+/*
   remove UD from registry, if there, and mark destroyed
   remove all channel UD from registry, if there, and mark destroyed
-}
 */
+}
 
 static
 gboolean v_on_connection_accepted(VortexConnection * connection, gpointer data)
 {
-  v_debug("->connection accept %p\n", connection);
+  v_debug("->connection accept %p %s %s\n",
+      connection,
+      vortex_connection_get_host(connection),
+      vortex_connection_get_port(connection)
+      );
+
+  vortex_connection_set_on_close_full(connection, v_on_connection_closed, data);
 
   return TRUE;
 }
+
+int v_connection_host(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  lua_pushstring(L, vortex_connection_get_host(*ud));
+  return 1;
+}
+
+int v_connection_port(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  lua_pushstring(L, vortex_connection_get_port(*ud));
+  return 1;
+}
+
+int v_connection_id(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  lua_pushinteger(L, vortex_connection_get_id(*ud));
+  return 1;
+}
+
+int v_connection_features(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  lua_pushstring(L, vortex_connection_get_features(*ud));
+  return 1;
+}
+
+static const struct luaL_reg v_connection_methods[] = {
+  { "host",           v_connection_host }, // This is remote host/port, not local.
+  { "port",           v_connection_port }, // Name should reflect this, and need other APIs for local.
+  { "id",             v_connection_id },
+  { "features",       v_connection_features },
+//{ "role",           v_connection_id },
+  { NULL, NULL }
+};
+
 
 
 /** channel support **/
@@ -838,6 +894,7 @@ int luaopen_vortex(lua_State* L)
 
   v_obj_metatable(L, V_FRAME_REGID, v_frame_methods);
   v_obj_metatable(L, V_CHANNEL_REGID, v_channel_methods);
+  v_obj_metatable(L, V_CONNECTION_REGID, v_connection_methods);
 
   luaL_register(L, V_MAIN, v_methods);
 
