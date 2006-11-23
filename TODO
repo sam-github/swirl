@@ -2,16 +2,15 @@ Note:
 
 - vortex_greetings_send: docs are the copyright!
 
-- vortex_listener_new(): host, port should be const gchar*? And why is
-  port a string? I would understand if it could be a port number, or a
-  service that was mapped to a string, but it just gets strtol() called
-  on it, unless I misread.
-
 - vortex_channel_send_rpy(): ... actually, it appears const isn't used
   anywhere, why not?
 
 - profiles_register(): uri is strduped, contrary to docs, so it could be
-  const gchar* (also, it doesn't appear to be freed)
+  const gchar* (also, uri doesn't appear to be freed)
+
+  profiles are never unregistered? I have no way to know when to free the
+  user-data, currently I just leak it, though since only one call to
+  vortex_init is allowed, its not a recurring leak.
 
 - is calling vortex_exit() in a callback the right way to stop  the
   listener? When I do it in the channel close callback, the client never
@@ -28,6 +27,46 @@ Note:
 - VortexOnStartChannelExtended: no way to set the encoding for profile_content_reply?
   Also, profile_content_reply is freed with g_free (undocumented but
   semi-obvious), can it have been allocated with strdup()?
+
+++
+
+Object lifetime:
+
+listener:
+start:vortex_listener_new
+
+connection:
+
+- vortex_connection_new/ (active)
+    VortexConnectionNew
+- vortex_listener_set_on_connection_accepted/ (passive)
+    VortexOnAcceptedConnection
+- vortex_connection_set_on_close_full/
+    VortexConnectionOnCloseFull
+
+vortex_connection_ref, for what purpose?
+
+
+channel:
+
+- vortex_profiles_register/ (passive)
+    VortexOnStartChannel (don't use)
+    VortexOnCloseChannel (allows peer to refuse close)
+
+- vortex_profiles_register_extended_start/
+    VortexOnStartChannelExtended
+
+- vortex_channel_new_full/ (active)
+    VortexOnCloseChannel
+    VortexOnFrameReceived
+    VortexOnChannelCreated
+
+- vortex_channel_close/ (active)
+    VortexOnClosedNotification
+
+frame:
+
+
 
 ++
 
