@@ -2,10 +2,42 @@
 
 require"vortex"
 
+--[[
 chat = {
-  user = {},
+  users = {},
   conn = {},
 }
+
+function chat:start(user, channel)
+  self.users[user] = { user = user, channel = channel, queue = {} }
+  self.channels[channel] = self.users[user]
+end
+
+function chat:close(channel)
+  self.users[self.channels[channel].user] = nil
+  self.channels[channel] = nil
+end
+
+function chat:frame(channel, frame)
+  f =  self[frame:type()] or print
+  f(self, channel, frame)
+end
+
+function chat:msg(channel, msg)
+  send = self.channels[channel]
+  -- can't msg data have mime metadata preceeding?
+  pkt = send.user.."> "..msg
+  for _, recv in pairs(self.users) do
+    if not(recv == send) then
+      -- pcall this
+      msgno = recv.channel:send_msg(pkt)
+      -- flow control?
+      -- remember unacked msgno?
+    end
+  end
+  channel:send_rpy(msg:msgno(), "ok")
+end
+]]
 
 print("register: ".."http://beep.ensembleindependant.org/profiles/chat")
 
@@ -20,17 +52,22 @@ vortex:profiles_register{
       " content="..name..
       " encoding="..encoding
     )
+    conn = nil
+    collectgarbage()
     return true -- , "content reply"
   end,
   close = function (...)
     -- print varargs!
     print"close..."
+    -- vortex:listener_unlock()
     return true
   end,
   frame = function (channel, connection, frame)
-    print("frame#"..frame:msgno().."<"..frame:payload()..">")
+    print("frame#"..frame:msgno()..":"..frame:type().."<"..frame:payload()..">")
     channel:send_rpy(frame:msgno(), "ok")
-    print"rpy <ok>"
+    -- frames can have different types, should I reply?
+    conn = nil
+    collectgarbage()
   end,
 }
 
@@ -45,9 +82,6 @@ vortex:listener_new{port=44000}
 print"listener wait.."
 
 vortex:listener_wait()
-
--- How do we exit?
-
-print"listener wait done"
+vortex:exit()
 
 -- vim:ft=lua:
