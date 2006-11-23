@@ -18,7 +18,6 @@ void frame_received (VortexChannel    * channel,
 				
 	g_print ("VORTEX_LISTENER: end task (pid: %d)\n", getpid ());
 
-
 	return;
 }
 
@@ -31,7 +30,7 @@ gboolean start_channel (gint               channel_num,
 	
   g_print("channel start %d - features=%s profile=%s\n",
       channel_num,
-      vortex_connection_get_features(channel),
+      vortex_connection_get_features(connection),
       vortex_channel_get_profile(channel)
       );
 
