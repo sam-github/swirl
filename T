@@ -1,9 +1,16 @@
 #!/bin/sh
 
-V=~/p/beep/vortex/vortex-0.9.0.b2134.g2134/src
+V=~/p/beep/vortex/svn-vortex/src
+A=~/p/beep/vortex/svn-axl/src
+#G=~/p/beep/vortex/svn-axl/src
+#L=~/p/lua/local
+L=./local
+
+x="$V $A $G $L"
 
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm . $V
+ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c
+
 
