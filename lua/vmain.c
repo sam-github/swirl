@@ -57,8 +57,8 @@ available with vortex:listener_wait().
 static
 pthread_mutex_t v_lua_enter = PTHREAD_MUTEX_INITIALIZER;
 
-#define LOCK() {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);} v_stack_invariant(L);
-#define UNLOCK() v_stack_invariant(L); {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);}
+#define LOCK() v_debug("TRY %s", __FUNCTION__); {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);} v_stack_invariant(L); v_debug("LOCK %s", __FUNCTION__);
+#define UNLOCK() v_stack_invariant(L); {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);} v_debug("UNLOCK %s", __FUNCTION__);
 
 /*
 When the lua stack is unlocked the vortex threads can make callbacks. To make
@@ -70,9 +70,13 @@ before unlocking, and all callbacks should preserve this invariant.
                         key is a URI string
                         value is the table registered
   [3] _objects{}    the table of vortex objects
-                        key is lightuserdata of the underlying toolkit object's address
+                        key is lightuserdata of the vortex object pointer
                         value is the lua userdata object
+
+                        table has weak values, it will not block garbage collection
 */
+
+#define V_IDX_OBJECTS 3
 
 /* Return 0 on failure, pushes and returns index of profile on success. */
 int v_profile_get(lua_State* L, const char* profile)
@@ -85,7 +89,6 @@ int v_profile_get(lua_State* L, const char* profile)
   }
   return lua_gettop(L);
 }
-
 
 /* Check lua stack invariant. */
 void v_stack_invariant(lua_State* L)
@@ -170,24 +173,6 @@ const char* v_arg_string(lua_State* L, int argt, const char* field, const char* 
   return lua_tostring(L, -1);
 }
 
-#if 0
-static int checkfn(lua_State* L, int idx)
-{
-  luaL_argcheck(L, lua_gettype(L, idx) == LUA_TFUNCTION, idx, "expected function");
-}
-
-
-gboolean on_accepted (VortexConnection * connection, gpointer data)
-{
-	g_print ("New connection accepted from: %s:%s\n",
-		 vortex_connection_get_host (connection),
-		 vortex_connection_get_port (connection));
-
-	/* return TRUE to accept the connection to be created */
-	return TRUE;
-}
-#endif
-
 /* pcall wrapper, logging what errors, or aborting on internal errors (error
  * handler failed, or out of memory)
  */
@@ -204,11 +189,12 @@ static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
     case LUA_ERRRUN:
       // code errored, not fatal
       g_warning("error calling `%s' - %s", what, lua_tostring(L, -1));
+      v_debug("error calling `%s' - %s", what, lua_tostring(L, -1));
       lua_pop(L, 1);
       break;
     default:
-      g_error("error calling `%s' - %s", what,
-          err == LUA_ERRMEM ? "out of memory" : "error handler errored");
+      g_error("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
+      v_debug("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
       break;
   }
 
@@ -218,29 +204,43 @@ static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
 /** miscellaneous light weight vortex objects **/
 
 static
-void v_frametype_push(lua_State*L, VortexFrameType frametype)
+const char* v_frametype_str(VortexFrameType frametype)
 {
   switch(frametype)
   {
-    case VORTEX_FRAME_TYPE_MSG: lua_pushstring(L, "msg"); break;
-    case VORTEX_FRAME_TYPE_RPY: lua_pushstring(L, "rpy"); break;
-    case VORTEX_FRAME_TYPE_ANS: lua_pushstring(L, "ans"); break;
-    case VORTEX_FRAME_TYPE_ERR: lua_pushstring(L, "err"); break;
-    case VORTEX_FRAME_TYPE_NUL: lua_pushstring(L, "nul"); break;
-    case VORTEX_FRAME_TYPE_SEQ: lua_pushstring(L, "seq"); break;
-    default:             lua_pushstring(L, "unknown"); break;
+    case VORTEX_FRAME_TYPE_MSG: return "msg";
+    case VORTEX_FRAME_TYPE_RPY: return "rpy";
+    case VORTEX_FRAME_TYPE_ANS: return "ans";
+    case VORTEX_FRAME_TYPE_ERR: return "err";
+    case VORTEX_FRAME_TYPE_NUL: return "nul";
+    case VORTEX_FRAME_TYPE_SEQ: return "seq";
+    case VORTEX_FRAME_TYPE_UNKNOWN: break;
   }
+  return "unknown";
+}
+
+static
+void v_frametype_push(lua_State*L, VortexFrameType frametype)
+{
+  lua_pushstring(L, v_frametype_str(frametype));
+}
+
+static
+const char* v_encoding_str(VortexEncoding encoding)
+{
+  switch(encoding)
+  {
+    case EncodingNone:   return "none";
+    case EncodingBase64: return "base64";
+    case EncodingUnknown: break;
+  }
+  return "unknown";
 }
 
 static
 void v_encoding_push(lua_State*L, VortexEncoding encoding)
 {
-  switch(encoding)
-  {
-    case EncodingNone:   lua_pushstring(L, "none");    break;
-    case EncodingBase64: lua_pushstring(L, "base64");  break;
-    default:             lua_pushstring(L, "unknown"); break;
-  }
+  lua_pushstring(L, v_encoding_str(encoding));
 }
 
 /** connections **/
@@ -249,44 +249,87 @@ void v_encoding_push(lua_State*L, VortexEncoding encoding)
 //   connection:remote_profiles() vortex_connection_get_remote_profiles
 
 static
+int v_connection_gc(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+
+  v_debug("DESTROY: %s - %p", V_CONNECTION_REGID, *ud);
+
+  if(*ud)
+    vortex_connection_unref(*ud, "lua/gc");
+
+  return 0;
+}
+
+static
 void v_connection_push(lua_State* L, VortexConnection* connection)
 {
-  VortexConnection** ud = lua_newuserdata(L, sizeof(connection));
-  *ud = NULL;
+  lua_pushlightuserdata(L, connection);
+  lua_gettable(L, V_IDX_OBJECTS);
 
-  luaL_getmetatable(L, V_CONNECTION_REGID);
-  lua_setmetatable(L, -2);
+  if(lua_isnil(L, -1)) {
+    /* doesn't exist, create new */
+    void** ud = NULL;
+    lua_pop(L, 1);
+    ud = lua_newuserdata(L, sizeof(connection));
+    *ud = NULL;
 
-  *ud = connection;
+    luaL_getmetatable(L, V_CONNECTION_REGID);
+    lua_setmetatable(L, -2);
+
+    *ud = connection;
+
+    lua_pushlightuserdata(L, connection);
+    lua_pushvalue(L, -2);
+    lua_settable(L, V_IDX_OBJECTS);
+
+    v_debug("CREATE: %s - %p", V_CONNECTION_REGID, *ud);
+
+    vortex_connection_ref(connection, "lua/gc");
+  }
+
+  /* Either way, user-data is now at top of stack. */
 }
 
-static
-void v_on_connection_closed(VortexConnection* connection, gpointer data)
-{
-  v_debug("->connection close %p %s %s\n",
-      connection,
-      vortex_connection_get_host(connection),
-      vortex_connection_get_port(connection)
-      );
 /*
-  remove UD from registry, if there, and mark destroyed
-  remove all channel UD from registry, if there, and mark destroyed
-*/
-}
-
+// TODO - use these for delivering callbacks later, not needed for obj lifetime tracking
 static
-gboolean v_on_connection_accepted(VortexConnection * connection, gpointer data)
+void v_on_connection_closed(VortexConnection* connection, gpointer user_data)
 {
-  v_debug("->connection accept %p %s %s\n",
+  lua_State* L = user_data;
+
+  LOCK();
+
+  v_debug("->connection close %p %s %s",
       connection,
       vortex_connection_get_host(connection),
       vortex_connection_get_port(connection)
       );
 
-  vortex_connection_set_on_close_full(connection, v_on_connection_closed, data);
-
-  return TRUE;
+  UNLOCK();
 }
+
+static
+gboolean v_on_connection_accepted(VortexConnection * connection, gpointer user_data)
+{
+  lua_State* L = user_data;
+  gboolean ok = TRUE;
+
+  LOCK();
+
+  v_debug("->connection accept %p %s %s",
+      connection,
+      vortex_connection_get_host(connection),
+      vortex_connection_get_port(connection)
+      );
+
+  vortex_connection_set_on_close_full(connection, v_on_connection_closed, user_data);
+
+  UNLOCK();
+
+  return ok;
+}
+*/
 
 int v_connection_host(lua_State* L)
 {
@@ -317,6 +360,7 @@ int v_connection_features(lua_State* L)
 }
 
 static const struct luaL_reg v_connection_methods[] = {
+  { "__gc",           v_connection_gc },
   { "host",           v_connection_host }, // This is remote host/port, not local.
   { "port",           v_connection_port }, // Name should reflect this, and need other APIs for local.
   { "id",             v_connection_id },
@@ -330,45 +374,67 @@ static const struct luaL_reg v_connection_methods[] = {
 /** channel support **/
 
 
-// add to vortex._objects!
-// don't create a new one if there is one in _objects
-// in _collect, find any objects, and clear them
-//
-// other than the REGID, and external types, this handling is the same
-// for both channel and connection objects
-//
-// what about frame objects? it appears that they have reference
-// to a channel, so any frame references to this channel also need
-// to be found and cleared! Are all frames known to the vortex library?
-//
-// actually, if the frame NEVER touches it's channel member, except
-// to return it, we can use channel_find() to see if the channel is still
-// alive, and return nil if it isn't... or something.
+struct ChannelCollect
+{
+  VortexChannel* channel;
+  lua_State* L;
+};
+
+static void v_channel_collect(gpointer v)
+{
+  struct ChannelCollect* collect = v;
+  lua_State* L = collect->L;
+
+  LOCK();
+
+  lua_pushlightuserdata(L, collect->channel);
+  lua_gettable(L, V_IDX_OBJECTS);
+
+  v_debug("DESTROY: VortexChannel %p - found? %c", collect->channel, BSTR(!lua_isnil(L, -1)));
+
+  if(!lua_isnil(L, -1)) {
+    VortexChannel** ud = luaL_checkudata(L, -1, V_CHANNEL_REGID);
+    *ud = NULL;
+  }
+  lua_pop(L, 1);
+
+  free(v);
+
+  UNLOCK();
+}
+
 static void v_channel_push(lua_State* L, VortexChannel* channel)
 {
-  VortexChannel** ud = lua_newuserdata(L, sizeof(channel));
-  *ud = NULL;
+  lua_pushlightuserdata(L, channel);
+  lua_gettable(L, V_IDX_OBJECTS);
 
-  luaL_getmetatable(L, V_CHANNEL_REGID);
-  lua_setmetatable(L, -2);
+  if(lua_isnil(L, -1)) {
+    /* doesn't exist, create new */
+    void** ud = NULL;
+    lua_pop(L, 1);
+    ud = lua_newuserdata(L, sizeof(channel));
+    *ud = NULL;
 
-  *ud = channel;
-}
+    luaL_getmetatable(L, V_CHANNEL_REGID);
+    lua_setmetatable(L, -2);
 
-static void v_channel_clear(lua_State* L, int idx)
-{
-  VortexChannel** ud = luaL_checkudata(L, idx, V_CHANNEL_REGID);
-  *ud = NULL;
-}
+    *ud = channel;
 
+    lua_pushlightuserdata(L, channel);
+    lua_pushvalue(L, -2);
+    lua_settable(L, V_IDX_OBJECTS);
 
-static void v_channel_collect(lua_State* L, VortexChannel* channel)
-{
-/*
-Look channel up in _objects, and clear it.
-  VortexChannel** ud = luaL_checkudata(L, idx, V_CHANNEL_REGID);
-  *ud = NULL;
-*/
+    v_debug("CREATE: %s - %p", V_CHANNEL_REGID, *ud);
+
+    if(!vortex_channel_get_data(channel, "channel")) {
+      struct ChannelCollect* collect = malloc(sizeof(*collect));
+      collect->L = L;
+      collect->channel = channel;
+      vortex_channel_set_data_full(channel, "channel", collect, NULL, v_channel_collect);
+    }
+  }
+
+  /* Either way, user-data is now at top of stack. */
 }
 
 /*-
@@ -397,20 +463,20 @@ static int v_channel_send_msg(lua_State* L)
 
   payload = lua_tolstring(L, -1, &payload_sz);
 
-  ok = vortex_channel_send_msg(*ud,(gchar*)payload, payload_sz, &msgno);
+  ok = vortex_channel_send_msg(*ud, payload, payload_sz, &msgno);
 
-  v_debug("channel(#%d):send_msg() => %c, %d",
-      vortex_channel_get_number(*ud), BSTR(ok), msgno);
+  //v_debug("channel(%d):send_msg() => %c, %d", vortex_channel_get_number(*ud), BSTR(ok), msgno);
 
   if(!ok)
     luaL_error(L, "vortex_channel_send_msg");
 
   lua_pushinteger(L, msgno);
+
   return 1;
 }
 
 /* common implementation of send_err, send_rpy, send_ans */
-static int v_channel_send_(lua_State* L, gboolean (*fn)(VortexChannel*, gchar*, gint, gint), const char* fn_name)
+static int v_channel_send_(lua_State* L, gboolean (*fn)(VortexChannel*, const gchar*, gint, gint), const char* fn_name)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = luaL_checkinteger(L, 2);
@@ -424,10 +490,11 @@ static int v_channel_send_(lua_State* L, gboolean (*fn)(VortexChannel*, gchar*, 
 
   payload = lua_tolstring(L, -1, &payload_sz);
 
-  ok = fn(*ud,(gchar*)payload, payload_sz, msgno);
+  v_debug("channel(#%d):%s(%d)...", vortex_channel_get_number(*ud), fn_name, msgno);
 
-  v_debug("channel(#%d):%s(%d) => %c",
-      vortex_channel_get_number(*ud), fn_name, msgno, BSTR(ok));
+  ok = fn(*ud, payload, payload_sz, msgno);
+
+  v_debug("channel(#%d):%s(%d) => %c", vortex_channel_get_number(*ud), fn_name, msgno, BSTR(ok));
 
   if(!ok)
     luaL_error(L, "vortex_channel_%s", fn_name);
@@ -513,8 +580,7 @@ static int v_channel_send_nul(lua_State* L)
 
   ok = vortex_channel_finalize_ans_rpy(*ud, msgno);
 
-  v_debug("channel(#%d):%s(%d) => %c",
-      vortex_channel_get_number(*ud), "send_nul", msgno, BSTR(ok));
+  // v_debug("channel(#%d):%s(%d) => %c", vortex_channel_get_number(*ud), "send_nul", msgno, BSTR(ok));
 
   if(!ok)
     luaL_error(L, "vortex_channel_%s", "send_nul");
@@ -645,7 +711,7 @@ gboolean v_on_start_channel (
   LOCK();
 
   if(v_get_profile_fn(L, profile, "start")) {
-    v_debug("channel(%d)->start(profile=%s, content=%s)", channel_num, profile, profile_content);
+    //v_debug("channel(%d)->start(profile=%s, content=%s)", channel_num, profile, profile_content);
     lua_pushstring(L, profile);
     lua_pushnumber(L, channel_num);
     v_connection_push(L, connection);
@@ -665,7 +731,7 @@ gboolean v_on_start_channel (
   }
 
 end:
-  v_debug("channel(%d)->start() => %c, %s", channel_num, BSTR(ok), content_reply);
+  v_debug("channel(%d)->start(profile %s, content %s) => %c, %s", channel_num, profile, profile_content, BSTR(ok), content_reply);
 
   UNLOCK();
 
@@ -690,15 +756,11 @@ gboolean v_on_close_channel (
 
   if(v_get_profile_fn(L, profile, "close"))
   {
-    // FIXME - make sure channel/connection argument ordering is consistent?
-    // FIXME - why was channel_num passed, not channel object?
     v_channel_push(L, channel);
     v_connection_push(L, connection);
     if(0 == v_pcall(L, "channel->close", 2, 1))
       ok = lua_toboolean(L, -1);
   }
-
-  v_channel_collect(L, channel);
 
   UNLOCK();
 
@@ -726,10 +788,10 @@ void v_on_frame_received(
   if(v_get_profile_fn(L, profile, "frame")) {
     int err;
     // 1: fn
-    v_channel_push(L, channel); // 2
+    v_channel_push(L, channel); // 2 FIXME - no longer need to push channel here
     v_frame_push(L, frame);     // 3
 
-    v_debug("channel(%d)->frame(%d) ...", chnum, frnum);
+    //v_debug("channel(%d)->frame(%d) ...", chnum, frnum);
 
     // we need to access args after the pcall, so need to build
     // new pcall stack
@@ -737,14 +799,14 @@ void v_on_frame_received(
     lua_pushvalue(L, top+2); // channel
     v_connection_push(L, connection); // connection
     lua_pushvalue(L, top+3); // frame
+    //v_debug_stack(L);
     err = v_pcall(L, "channel->frame", 3, 0);
 
     // TODO should the channel/connection be torn down if one of the handlers errors?
 
-    v_debug("channel(%d)->frame(%d) => %c", chnum, frnum, BSTR(!err));
+    v_debug("channel(%d)->frame(%d, type %s) => %c", chnum, frnum, v_frametype_str(vortex_frame_get_type(frame)), BSTR(!err));
 
-    // channel and frame are invalid after return from callback, so clear them
-    v_channel_clear(L, top+2);
+    // frame is invalid after return from callback, so clear it
     v_frame_clear(L, top+3);
   }
 
@@ -768,7 +830,11 @@ The frame fn is:
  ...
 
 The close fn is:
- ...
+  ok = function(channel, conn)
+    FIXME - make sure channel/connection argument ordering is consistent?
+    FIXME - why was channel_num passed, not channel object? Should I pass number?
+
+ok is true to accept the channel close, false to refuse channel close.
 
 */
 static int v_profiles_register(lua_State* L)
@@ -783,7 +849,7 @@ static int v_profiles_register(lua_State* L)
   lua_getfield(L, 4, profile);
   luaL_argcheck(L, lua_isnil(L, 5), 2, "profile already registered");
   lua_pop(L, 1);
-  g_assert(!vortex_profiles_is_registered((gchar*)profile));
+  g_assert(!vortex_profiles_is_registered(profile));
 
   lua_pushvalue(L, 2);
   /* stack: vortex, args, profile, vortex._profiles, args */
@@ -794,7 +860,7 @@ static int v_profiles_register(lua_State* L)
   // Register the profile.
 
   vortex_profiles_register (
-      (gchar*) profile,
+      profile,
       0, L, // start - use extended start
         // vortex has a bug where close uses start's user_data, so pass it
         // above
@@ -802,7 +868,7 @@ static int v_profiles_register(lua_State* L)
       v_on_frame_received, L);
 
   vortex_profiles_register_extended_start(
-      (gchar*) profile,
+      profile,
       v_on_start_channel, L
       );
 
@@ -816,12 +882,16 @@ Deinitialize the vortex library.
 int v_exit(lua_State* L)
 {
   lua_getfield(L, 1, "_profiles");
+  lua_getfield(L, 1, "_objects");
 
-  if(!lua_isnil(L, -1)) {
-    vortex_exit();
-    lua_pushnil(L);
-    lua_setfield(L, 1, "_profiles");
-  }
+  UNLOCK();
+
+  // Allow worker threads to cleanup.
+
+  vortex_exit();
+
+  LOCK();
+
   return 0;
 }
 
@@ -831,20 +901,19 @@ int v_exit(lua_State* L)
 Creates a new listener on host and port.
 
 Host is optional, it defaults to INADDR_ANY ("0.0.0.0").
-*/
-/*-
+
 TODO - accept a table of arguments:
   on_ready=
   on_accept=
 
-TODO - all callback functions called on_? on_start, on_close, on_frame, ...
+TODO - all callback functions called on_? on_start, on_close, on_frame, ...?
 */
 static int v_listener_new(lua_State* L)
 {
   const char* host = v_arg_string(L, 2, "host", "0.0.0.0");
   const char* port = v_arg_string(L, 2, "port", 0);
 
-  vortex_listener_new((gchar*)host, (gchar*)port, NULL, NULL);
+  vortex_listener_new(host, port, NULL, NULL);
 
   return 0;
 }
@@ -852,9 +921,9 @@ static int v_listener_new(lua_State* L)
 /*-
 -- vortex:listener_wait()
 
-Allow read thread to begin processing connection messages.
+Allow threads to begin processing connection messages.
 
-Will return when vortex:exit() is called.
+Will return when vortex:listener_unlock() is called.
 */
 static int v_listener_wait(lua_State* L)
 {
@@ -870,13 +939,31 @@ static int v_listener_wait(lua_State* L)
   return 0;
 }
 
+/*-
+-- vortex:listener_unlock()
+
+Causes vortex:listener_wait() to return, blocking any vortex
+processing.
+
+Until listener_wait() is called again no further vortex activity will occur.
+*/
+static int v_listener_unlock(lua_State* L)
+{
+  vortex_listener_wait();
+  return 0;
+}
+
+
 static const struct luaL_reg v_methods[] = {
   // listener_unblock
   { "exit",               v_exit },
   { "profiles_register",  v_profiles_register },
   { "listener_new",       v_listener_new },
   { "listener_wait",      v_listener_wait },
+  { "listener_unlock",    v_listener_unlock },
   // log_enable{status=bool, color=bool}
+  // connection_status
+  //    table for connection close handler, and connection accept handler
   { NULL, NULL }
 };
 
@@ -888,6 +975,7 @@ void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg meth
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 }
+
 int luaopen_vortex(lua_State* L)
 {
   (void) v_debug_stack;
@@ -902,15 +990,19 @@ int luaopen_vortex(lua_State* L)
   lua_newtable(L);
   lua_setfield(L, -2, "_profiles");
 
-  /* vortex._objects = {} */
+  /* vortex._objects = {}, with weak values */
   lua_newtable(L);
+  lua_newtable(L);
+  lua_pushstring(L, "v");
+  lua_setfield(L, -2, "__mode");
+  lua_setmetatable(L, -2);
   lua_setfield(L, -2, "_objects");
 
   {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
 
   vortex_init();
 
-  vortex_listener_set_on_connection_accepted(v_on_connection_accepted, NULL);
+  //vortex_listener_set_on_connection_accepted(v_on_connection_accepted, L);
 
   //v_debug_stack(L);
 
