@@ -47,6 +47,8 @@ SOFTWARE.
 #define V_CHANNEL_REGID    "VortexChannel"    //"363C4518-6DFB-11DB-9133-000393AD088C"
 #define V_CONNECTION_REGID "VortexConnection"
 
+static void v_channel_push(lua_State* L, VortexChannel* channel);
+
 #define V_MAIN  "vortex"
 
 /*
@@ -359,12 +361,21 @@ int v_connection_features(lua_State* L)
   return 1;
 }
 
+int v_connection_channel(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  gint channo = luaL_checkinteger(L, 2);
+  v_channel_push(L, vortex_connection_get_channel(*ud, channo));
+  return 1;
+}
+
 static const struct luaL_reg v_connection_methods[] = {
   { "__gc",           v_connection_gc },
   { "host",           v_connection_host }, // This is remote host/port, not local.
   { "port",           v_connection_port }, // Name should reflect this, and need other APIs for local.
   { "id",             v_connection_id },
   { "features",       v_connection_features },
+  { "channel",        v_connection_channel },
 //{ "role",           v_connection_id },
   { NULL, NULL }
 };
@@ -405,6 +416,11 @@ static void v_channel_collect(gpointer v)
 
 static void v_channel_push(lua_State* L, VortexChannel* channel)
 {
+  if(!channel) {
+    lua_pushnil(L);
+    return;
+  }
+
   lua_pushlightuserdata(L, channel);
   lua_gettable(L, V_IDX_OBJECTS);
 
@@ -435,6 +451,25 @@ static void v_channel_push(lua_State* L, VortexChannel* channel)
   }
 
   /* Either way, user-data is now at top of stack. */
+}
+
+/*-
+-- channo = channel:no()
+-- channo = channel:number()
+
+Get channel number.
+
+TODO - can/should I overload the # to return channel number? Too cute/
+*/
+static int v_channel_number(lua_State* L)
+{
+  VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
+
+  luaL_argcheck(L, *ud, 1, "channel has been collected");
+
+  lua_pushnumber(L, vortex_channel_get_number(*ud));
+
+  return 1;
 }
 
 /*-
@@ -589,6 +624,8 @@ static int v_channel_send_nul(lua_State* L)
 }
 
 static const struct luaL_reg v_channel_methods[] = {
+  { "number",             v_channel_number },
+  { "no",                 v_channel_number },
   { "send_msg",           v_channel_send_msg },
   { "send_rpy",           v_channel_send_rpy },
   { "send_err",           v_channel_send_err },
@@ -667,11 +704,29 @@ static int v_frame_payload(lua_State* L)
   return 1;
 }
 
+static int v_frame_channel(lua_State* L)
+{
+  VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
+  luaL_argcheck(L, *ud, 1, "frame has been collected");
+  v_channel_push(L, vortex_frame_get_channel_ref(*ud));
+  return 1;
+}
+
+static int v_frame_channo(lua_State* L)
+{
+  VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
+  luaL_argcheck(L, *ud, 1, "frame has been collected");
+  lua_pushinteger(L, vortex_frame_get_channel(*ud));
+  return 1;
+}
+
 static const struct luaL_reg v_frame_methods[] = {
 //  { "__gc",               obj_gc },
   { "type",               v_frame_type },
   { "msgno",              v_frame_msgno },
   { "payload",            v_frame_payload },
+  { "channel",            v_frame_channel },
+  { "channo",             v_frame_channo },
   { NULL, NULL }
 };
 
