@@ -3,8 +3,14 @@ O = $(X:.c=.o)
 
 L=vortex.so
 
-do: build
+do: build README.API
 	$(MAKE) -C ../c
+
+README.API: vmain.c
+	luadoc vmain.c > README.API
+
+run:
+	./local/lua lchatd
 
 build: $L
 
