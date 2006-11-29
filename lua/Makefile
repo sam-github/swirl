@@ -1,12 +1,15 @@
 # Makefile
 
-X = $(wildcard *.c)
+X = $(wildcard v*.c)
 O = $(X:.c=.o)
 
 L=vortex.so
 
-do: build README.API
+do: build README.API chat-client.c
 	$(MAKE) -C ../c
+
+chat-client.c: ../c/chat-client.c
+	cp -v $< .
 
 README.API: vmain.c
 	luadoc vmain.c > README.API
