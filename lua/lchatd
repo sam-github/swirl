@@ -1,4 +1,6 @@
-#!./local/lua
+--[[
+A simple IRC-like chat-server.
+]]
 
 require"vortex"
 

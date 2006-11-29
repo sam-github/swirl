@@ -1,3 +1,5 @@
+# Makefile
+
 X = $(wildcard *.c)
 O = $(X:.c=.o)
 
@@ -10,7 +12,7 @@ README.API: vmain.c
 	luadoc vmain.c > README.API
 
 run:
-	./local/lua lchatd
+	./local/lua lchatd.lua
 
 build: $L
 

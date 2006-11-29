@@ -1,0 +1,274 @@
+
+
+
+
+** connection - object wrapper for VortexConnection
+
+
+-- str = tostring(conn)
+
+For debugging purposes, return a string identifying the connection.
+
+
+-- host = conn:host()
+
+Host name of connection.
+
+Ref: vortex_connection_get_host()
+
+
+-- port = conn:port()
+
+Port number of connection.
+
+Ref: vortex_connection_get_port()
+
+
+-- connid = conn:id()
+
+Get connection's ID, a a vortex-assigned unique identifier
+for each connection.
+
+Ref: vortex_connection_get_id()
+
+
+-- str = conn:features()
+
+Get connection's "features".
+
+Ref: vortex_connection_get_features()
+
+
+-- chan = conn:chan(channo)
+
+Get channel from a connection by the BEEP channel number.
+
+Ref: vortex_connection_get_channel()
+
+
+
+
+** channel - object wrapper for VortexChannel
+
+A channel can be closed at the BEEP or library level, causing the
+underlying VortexChannel to be freed. All the channel methods
+will error() if the underlying channel has been freed, except:
+- tostring(chan)
+- chan:exists()
+
+
+
+-- str = tostring(chan)
+
+For debugging purposes. Returns a string identify the user-data as a
+VortexChannel object, with it's channel number and connection identifier.
+
+
+-- bool = chan:exists()
+
+Returns true if the underlying VortexChannel still exists, false otherwise.
+
+
+-- channo = chan:no()
+
+Get channel number.
+
+
+-- msgno = chan:send_msg(...)
+
+Send msg on channel, return value is msgno for this message.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  msgno = chan:send_msg("it is ", os.date(), " here")
+
+
+-- chan:send_rpy(msgno, ...)
+
+Send reply to msgno on channel.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  chan:send_rpy(frame:msgno(), "reply to msg#", frame:msgno())
+
+
+-- chan:send_err(msgno, ...)
+
+Send error reply to msgno on channel.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  chan:send_err(frame:msgno())
+
+
+-- chan:send_ans(msgno, ...)
+
+Send one in a series of replies to msgno on channel. Call chan:send_nul()
+when all replies in series have been sent.
+
+Payload is concatenation of ...
+
+Errors on failure.
+
+Example:
+  while block = io:read(4096) do
+    chan:send_ans(msgno, block)
+  end
+  chan:send_nul(msgno)
+
+
+-- chan:send_nul(msgno)
+
+Send notification that a series of ans replies are complete.
+
+Errors on failure.
+
+See: chan:send_ans()
+
+
+
+
+** frame - object wrapper for VortexFrame
+
+
+-- fr = frame:copy()
+
+Returns a copy of a frame.
+
+The copy is identical to the src, except it will NOT be automatically collected
+by the library, it will be garbage collected "normally".
+
+Frame's passed in callbacks will be collected automatically when the callback
+returns. If you need to keep a copy of the frame for longer than the life of
+the callback, you must make a copy.
+
+
+-- type = frame:type()
+
+Get type of a frame:
+- "msg": this frame should be replied to with chan:send_rpy(), send_ans(), or send_err()
+- "rpy": this frame is a complete success reply to an earlier "msg" frame
+- "ans": this frame is one in a series of success replies to a "msg" frame
+- "nul": this frame is last in a series of success replies to a "msg" frame
+- "err": this frame is a failure reply to an earlier "msg" frame
+- "seq": an internal frame type, should never be seen?
+- "unknown": an error, should never be seen?
+
+Ref: vortex_frame_get_type()
+
+
+-- msgno = frame:msgno()
+
+Get msg sequence number of a frame.
+
+Ref: vortex_frame_get_msgno()
+
+
+-- payload = frame:payload()
+
+Get payload of a frame, a string.
+
+Ref: vortex_frame_get_payload(), vortex_frame_get_payload_size()
+
+
+-- chan = frame:chan()
+
+Returns the frame's channel object.
+
+Note that frames can exist for longer than their channel, so the channel object
+returned may already have been collected.
+
+
+-- channo = frame:channo()
+
+Returns the frame's channel's number.
+
+Note that frames can exist for longer than their channel, but the original
+channel number can still be returned.
+
+I think BEEP may reuse channel numbers! If so, the connection may have a
+channel of this number, but it won't be this frame's channel!
+
+
+-- frameid = frame:id()
+
+Returns the frame's ID, a vortex-assigned unique identifier
+for each channel.
+
+Ref: vortex_frame_get_id()
+
+
+
+
+** vortex - profile registration and application management
+
+
+-- vortex:profiles_register{profile=str, start=fn, frame=fn, close=fn}
+
+The start fn is:
+  ok [, content_reply] = function(profile,channo,conn,server,content,encoding)
+
+ok is true to accept the channel create, false to refuse channel creation.
+
+content_reply is a string that will be returned as profile content in the
+reply. It is optional, nil means no content_reply.
+
+The frame fn is:
+  function(chan, conn, frame)
+
+The close fn is:
+  ok = function(chan, conn)
+ok is true to accept the channel close, false to refuse channel close.
+
+
+TODO - the Vortex callbacks use channo for start/close, and VortexChannel for
+frame. channel doesn't exist before the start, but why isn't channo passed for
+frame? And why is it for close? Can I make all 3 use channo?  Should I make the
+last two pass a channel?
+
+
+-- vortex:exit()
+Deinitialize the vortex library.
+
+Ref: vortex_exit()
+
+
+-- vortex:listener_new{host=str, port=num}
+
+Creates a new listener on host and port.
+
+Host is optional, it defaults to INADDR_ANY ("0.0.0.0").
+
+TODO - accept a table of arguments:
+  on_ready=
+  on_accept=
+
+TODO - all callback functions called on_? on_start, on_close, on_frame, ...?
+
+Ref: vortex_listener_new()
+
+
+-- vortex:listener_wait()
+
+Allow threads to begin processing connection messages.
+
+Will return when vortex:listener_unlock() is called.
+
+Ref: vortex_listener_wait()
+
+
+-- vortex:listener_unlock()
+
+Causes vortex:listener_wait() to return, blocking any vortex
+processing.
+
+Until listener_wait() is called again no further vortex activity will occur.
