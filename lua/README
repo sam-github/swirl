@@ -2,3 +2,10 @@ See README.BUILD for hints to build this.
 
 See README.API for a summary of the lua API.
 
+
+lchatd.lua is a very simple example chat-server, run it as `lua lchatd.lua'
+after building the module.
+
+chat-client.c is a client for lchatd.lua, in the style of the old unix `talk'
+command. start two instances with different usernames.
+
