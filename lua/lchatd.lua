@@ -2,6 +2,8 @@
 A simple IRC-like chat-server.
 ]]
 
+io.stdout:setvbuf"line"
+
 require"vortex"
 
 chat = {
