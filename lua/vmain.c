@@ -59,63 +59,80 @@ available with vortex:listener_wait().
 static
 pthread_mutex_t v_lua_enter = PTHREAD_MUTEX_INITIALIZER;
 
-#define LOCK() v_debug("TRY %s", __FUNCTION__); {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);} v_stack_invariant(L); v_debug("LOCK %s", __FUNCTION__);
-#define UNLOCK() v_stack_invariant(L); {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);} v_debug("UNLOCK %s", __FUNCTION__);
+#define LOCK()\
+  v_debug("TRY %s", __FUNCTION__);\
+  {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}\
+  v_debug("LOCK %s", __FUNCTION__);
+
+/* \
+  {int top_ = lua_gettop(L);
+  */
+
+#define UNLOCK()\
+  {int e=pthread_mutex_unlock(&v_lua_enter); assert(!e);}\
+  v_debug("UNLOCK %s", __FUNCTION__);
 
 /*
-When the lua stack is unlocked the vortex threads can make callbacks. To make
-this process a bit simpler, the stack is pre-setup with some useful entries
-before unlocking, and all callbacks should preserve this invariant.
-
-  [1] vortex{}      the vortex module table
-  [2] _profiles{}   the table of registered profiles
+  vortex{      the vortex module table
+    _profiles{}   the table of registered profiles
                         key is a URI string
                         value is the table registered
-  [3] _objects{}    the table of vortex objects
+    _objects{}    the table of vortex objects
                         key is lightuserdata of the vortex object pointer
                         value is the lua userdata object
 
                         table has weak values, it will not block garbage collection
-*/
-
-#define V_IDX_OBJECTS 3
-
-/* Check lua stack invariant. */
-void v_stack_invariant(lua_State* L)
-{
-  lua_settop(L, 3);
-  g_assert(lua_type(L, 1) == LUA_TTABLE);
-  g_assert(lua_type(L, 2) == LUA_TTABLE);
-  g_assert(lua_type(L, 3) == LUA_TTABLE);
-}
-
-/* Return 0 on failure, pushes and returns index of profile on success. */
-int v_profile_get(lua_State* L, const char* profile)
-{
-  lua_getfield(L, 2, profile);
-
-  if(lua_isnil(L, -1)) {
-    lua_pop(L, 1);
-    return 0;
   }
-  return lua_gettop(L);
-}
+
+  lua_getfield(L, 1, "_profiles");
+  lua_getfield(L, 1, "_objects");
+*/
 
 /** objects **/
 
-/*
-These don't assume the stack layout above so they can be called
-from locations other than vortex callbacks.
-*/
+/* Get vortex. */
+static void v_get_table(lua_State* L)
+{
+  lua_getfield(L, LUA_GLOBALSINDEX, "vortex");
+  g_assert(lua_istable(L, -1));
+}
+
+/* Gets the profile and pushes it, or pushes nil if not found. */
+static void v_prof_get(lua_State* L, const char* profile)
+{
+  int top = lua_gettop(L);
+
+  v_get_table(L);
+
+  lua_getfield(L, -1, "_profiles");
+  lua_getfield(L, -1, profile);
+
+  lua_replace(L, top + 1);
+  lua_settop(L, top + 1);
+}
+
+/* Get fname for profile. Return true if found. Leave nil or the function at top of stack */
+static gboolean v_prof_get_fn(lua_State* L, const char* profile, const char* fname)
+{
+  v_prof_get(L, profile);
+
+  if(lua_isnil(L, -1))
+    return 0;
+
+  lua_getfield(L, -1, fname);
+
+  lua_remove(L, -2);
+
+  return !lua_isnil(L, -1);
+}
+
 
 /* Get vortex._objects. */
 static void v_obj_get_table(lua_State* L)
 {
-  lua_getfield(L, LUA_GLOBALSINDEX, "vortex");
-  g_assert(lua_istable(L, -1));
-
+  v_get_table(L);
   lua_getfield(L, -1, "_objects");
-  g_assert(lua_istable(L, -1));
+  lua_remove(L, -2);
 }
 
 /* Gets the object and pushes it, or pushes nil if not found. */
@@ -155,6 +172,7 @@ static void v_debug(const char* fmt, ...)
   va_list ap;
   va_start(ap, fmt);
   // goes where? g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, fmt, ap);
+  fprintf(stdout, "_");
   vfprintf(stdout, fmt, ap);
   fprintf(stdout, "\n");
   va_end(ap);
@@ -324,7 +342,7 @@ void v_encoding_push(lua_State*L, VortexEncoding encoding)
 //   connection:remote_profiles() vortex_connection_get_remote_profiles
 
 static
-int v_connection_gc(lua_State* L)
+int vl_connection_gc(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
 
@@ -332,6 +350,8 @@ int v_connection_gc(lua_State* L)
 
   if(*ud)
     vortex_connection_unref(*ud, "lua/gc");
+
+  *ud = NULL;
 
   return 0;
 }
@@ -342,7 +362,7 @@ int v_connection_gc(lua_State* L)
 For debugging purposes, return a string identifying the connection.
 */
 static
-int v_connection_tostring(lua_State* L)
+int vl_connection_tostring(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   lua_pushfstring(L,
@@ -420,9 +440,6 @@ gboolean v_on_connection_accepted(VortexConnection * connection, gpointer user_d
 }
 */
 
-#if 0
-// FIXME - stack invariant not held..., the invariant stack is NOT a good idea
-// anymore, not for multithreaded code!
 /*-
 -- ok = conn:close()
 
@@ -430,14 +447,24 @@ Close connection.
 
 Ref: vortex_connection_close()
 */
-int v_connection_close(lua_State* L)
+int vl_connection_close(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   int b;
 
   UNLOCK()
 
+  // vortex_connection_close does an unref on success... but
+  // we are trying to keep connection object around until lua
+  // object is GDed, so play with ref count.
+  vortex_connection_ref(*ud, "lua/conn:close()");
+
   b = vortex_connection_close(*ud);
+
+  if(!b) {
+    /* our ref was not released, to it ouselves */
+    vortex_connection_unref(*ud, "lua/conn:close()");
+  }
 
   LOCK();
 
@@ -445,7 +472,6 @@ int v_connection_close(lua_State* L)
 
   return 1;
 }
-#endif
 
 /*-
 -- host = conn:host()
@@ -454,7 +480,7 @@ Host name of connection.
 
 Ref: vortex_connection_get_host()
 */
-int v_connection_host(lua_State* L)
+int vl_connection_host(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   lua_pushstring(L, vortex_connection_get_host(*ud));
@@ -468,7 +494,7 @@ Port number of connection.
 
 Ref: vortex_connection_get_port()
 */
-int v_connection_port(lua_State* L)
+int vl_connection_port(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   lua_pushstring(L, vortex_connection_get_port(*ud));
@@ -483,7 +509,7 @@ for each connection.
 
 Ref: vortex_connection_get_id()
 */
-int v_connection_id(lua_State* L)
+int vl_connection_id(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   lua_pushinteger(L, vortex_connection_get_id(*ud));
@@ -497,7 +523,7 @@ Get connection's "features".
 
 Ref: vortex_connection_get_features()
 */
-int v_connection_features(lua_State* L)
+int vl_connection_features(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   lua_pushstring(L, vortex_connection_get_features(*ud));
@@ -511,7 +537,7 @@ Get channel from a connection by the BEEP channel number.
 
 Ref: vortex_connection_get_channel()
 */
-int v_connection_chan(lua_State* L)
+int vl_connection_chan(lua_State* L)
 {
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   int channo = luaL_checkinteger(L, 2);
@@ -520,15 +546,15 @@ int v_connection_chan(lua_State* L)
 }
 
 static const struct luaL_reg v_connection_methods[] = {
-  { "__gc",           v_connection_gc },
-  { "__tostring",     v_connection_tostring },
-//{ "close",          v_connection_close },
-  { "host",           v_connection_host }, // This is remote host/port, not local.
-  { "port",           v_connection_port }, // Name should reflect this, and need other APIs for local.
-  { "id",             v_connection_id },
-  { "features",       v_connection_features },
-  { "chan",           v_connection_chan },
-//{ "role",           v_connection_role },
+  { "__gc",           vl_connection_gc },
+  { "__tostring",     vl_connection_tostring },
+  { "close",          vl_connection_close },
+  { "host",           vl_connection_host }, // This is remote host/port, not local.
+  { "port",           vl_connection_port }, // Name should reflect this, and need other APIs for local.
+  { "id",             vl_connection_id },
+  { "features",       vl_connection_features },
+  { "chan",           vl_connection_chan },
+//{ "role",           vl_connection_role },
   { NULL, NULL }
 };
 
@@ -557,8 +583,7 @@ static void v_channel_collect(gpointer v)
 
   LOCK();
 
-  lua_pushlightuserdata(L, collect->channel);
-  lua_gettable(L, V_IDX_OBJECTS);
+  v_obj_get(L, collect->channel);
 
   v_debug("DESTROY: VortexChannel %p - found? %c", collect->channel, BSTR(!lua_isnil(L, -1)));
 
@@ -566,6 +591,7 @@ static void v_channel_collect(gpointer v)
     VortexChannel** ud = luaL_checkudata(L, -1, V_CHANNEL_REGID);
     *ud = NULL;
   }
+
   lua_pop(L, 1);
 
   free(v);
@@ -616,7 +642,7 @@ For debugging purposes. Returns a string identify the user-data as a
 VortexChannel object, with it's channel number and connection identifier.
 */
 static
-int v_channel_tostring(lua_State* L)
+int vl_channel_tostring(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   if(*ud)
@@ -636,7 +662,7 @@ int v_channel_tostring(lua_State* L)
 
 Returns true if the underlying VortexChannel still exists, false otherwise.
 */
-static int v_channel_exists(lua_State* L)
+static int vl_channel_exists(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
 
@@ -650,7 +676,7 @@ static int v_channel_exists(lua_State* L)
 
 Get channel number.
 */
-static int v_channel_number(lua_State* L)
+static int vl_channel_number(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
 
@@ -681,7 +707,7 @@ where msgno is a number on success, nil on failure, and errstr
 is nil on success, and a descriptive string on failure.
 
 */
-static int v_channel_send_msg(lua_State* L)
+static int vl_channel_send_msg(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = -1;
@@ -746,7 +772,7 @@ Errors on failure.
 Example:
   chan:send_rpy(frame:msgno(), "reply to msg#", frame:msgno())
 */
-static int v_channel_send_rpy(lua_State* L)
+static int vl_channel_send_rpy(lua_State* L)
 {
   return v_channel_send_(L, vortex_channel_send_rpy, "send_rpy");
 }
@@ -763,7 +789,7 @@ Errors on failure.
 Example:
   chan:send_err(frame:msgno())
 */
-static int v_channel_send_err(lua_State* L)
+static int vl_channel_send_err(lua_State* L)
 {
   return v_channel_send_(L, vortex_channel_send_err, "send_err");
 }
@@ -784,7 +810,7 @@ Example:
   end
   chan:send_nul(msgno)
 */
-static int v_channel_send_ans(lua_State* L)
+static int vl_channel_send_ans(lua_State* L)
 {
   return v_channel_send_(L, vortex_channel_send_ans_rpy, "send_ans");
 }
@@ -798,7 +824,7 @@ Errors on failure.
 
 See: chan:send_ans()
 */
-static int v_channel_send_nul(lua_State* L)
+static int vl_channel_send_nul(lua_State* L)
 {
   VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
   int msgno = luaL_checkinteger(L, 2);
@@ -817,14 +843,14 @@ static int v_channel_send_nul(lua_State* L)
 }
 
 static const struct luaL_reg v_channel_methods[] = {
-  { "__tostring",         v_channel_tostring },
-  { "exists",             v_channel_exists },
-  { "no",                 v_channel_number },
-  { "send_msg",           v_channel_send_msg },
-  { "send_rpy",           v_channel_send_rpy },
-  { "send_err",           v_channel_send_err },
-  { "send_ans",           v_channel_send_ans },
-  { "send_nul",           v_channel_send_nul },
+  { "__tostring",         vl_channel_tostring },
+  { "exists",             vl_channel_exists },
+  { "no",                 vl_channel_number },
+  { "send_msg",           vl_channel_send_msg },
+  { "send_rpy",           vl_channel_send_rpy },
+  { "send_err",           vl_channel_send_err },
+  { "send_ans",           vl_channel_send_ans },
+  { "send_nul",           vl_channel_send_nul },
   { NULL, NULL }
 };
 
@@ -852,7 +878,7 @@ exists, but for now I'll assume everything is "safe" even when the channel no
 longer exists.
 */
 
-static int v_frame_gc(lua_State* L)
+static int vl_frame_gc(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
 
@@ -864,7 +890,7 @@ static int v_frame_gc(lua_State* L)
   return 0;
 }
 
-static int v_frame_tostring(lua_State* L)
+static int vl_frame_tostring(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
 
@@ -911,7 +937,7 @@ Frame's passed in callbacks will be collected automatically when the callback
 returns. If you need to keep a copy of the frame for longer than the life of
 the callback, you must make a copy.
 */
-static int v_frame_copy(lua_State* L)
+static int vl_frame_copy(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   VortexFrame** copy = NULL;
@@ -956,7 +982,7 @@ Get type of a frame:
 
 Ref: vortex_frame_get_type()
 */
-static int v_frame_type(lua_State* L)
+static int vl_frame_type(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
@@ -971,7 +997,7 @@ Get msg sequence number of a frame.
 
 Ref: vortex_frame_get_msgno()
 */
-static int v_frame_msgno(lua_State* L)
+static int vl_frame_msgno(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
@@ -986,7 +1012,7 @@ Get payload of a frame, a string.
 
 Ref: vortex_frame_get_payload(), vortex_frame_get_payload_size()
 */
-static int v_frame_payload(lua_State* L)
+static int vl_frame_payload(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
@@ -1002,7 +1028,7 @@ Returns the frame's channel object.
 Note that frames can exist for longer than their channel, so the channel object
 returned may already have been collected.
 */
-static int v_frame_chan(lua_State* L)
+static int vl_frame_chan(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   VortexChannel** chan = NULL;
@@ -1028,7 +1054,7 @@ channel number can still be returned.
 I think BEEP may reuse channel numbers! If so, the connection may have a
 channel of this number, but it won't be this frame's channel!
 */
-static int v_frame_channo(lua_State* L)
+static int vl_frame_channo(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
@@ -1044,7 +1070,7 @@ for each channel.
 
 Ref: vortex_frame_get_id()
 */
-static int v_frame_id(lua_State* L)
+static int vl_frame_id(lua_State* L)
 {
   VortexFrame** ud = luaL_checkudata(L, 1, V_FRAME_REGID);
   luaL_argcheck(L, *ud, 1, "frame has been collected");
@@ -1053,15 +1079,15 @@ static int v_frame_id(lua_State* L)
 }
 
 static const struct luaL_reg v_frame_methods[] = {
-  { "__gc",               v_frame_gc },
-  { "__tostring",         v_frame_tostring },
-  { "copy",               v_frame_copy },
-  { "type",               v_frame_type },
-  { "msgno",              v_frame_msgno },
-  { "payload",            v_frame_payload },
-  { "chan",               v_frame_chan },
-  { "channo",             v_frame_channo },
-  { "id",                 v_frame_id },
+  { "__gc",               vl_frame_gc },
+  { "__tostring",         vl_frame_tostring },
+  { "copy",               vl_frame_copy },
+  { "type",               vl_frame_type },
+  { "msgno",              vl_frame_msgno },
+  { "payload",            vl_frame_payload },
+  { "chan",               vl_frame_chan },
+  { "channo",             vl_frame_channo },
+  { "id",                 vl_frame_id },
   { NULL, NULL }
 };
 
@@ -1069,20 +1095,6 @@ static const struct luaL_reg v_frame_methods[] = {
 /*-
 ** vortex - profile registration and application management
 */
-
-// leave nil or the function at the top of the stack, return true if
-// the function was found
-static gboolean v_get_profile_fn(lua_State* L, const char* profile, const char* fname)
-{
-  if(!v_profile_get(L, profile))
-    g_assert(!profile);
-
-  lua_getfield(L, -1, fname);
-
-  lua_remove(L, -2);
-
-  return !lua_isnil(L, -1);
-}
 
 static
 gboolean v_on_start_channel (
@@ -1102,7 +1114,7 @@ gboolean v_on_start_channel (
 
   LOCK();
 
-  if(v_get_profile_fn(L, profile, "start")) {
+  if(v_prof_get_fn(L, profile, "start")) {
     //v_debug("channel(%d)->start(profile=%s, content=%s)", channel_num, profile, profile_content);
     lua_pushstring(L, profile);
     lua_pushnumber(L, channel_num);
@@ -1146,7 +1158,7 @@ gboolean v_on_close_channel (
 
   LOCK();
 
-  if(v_get_profile_fn(L, profile, "close"))
+  if(v_prof_get_fn(L, profile, "close"))
   {
     v_channel_push(L, channel);
     v_connection_push(L, connection);
@@ -1177,7 +1189,7 @@ void v_on_frame_received(
 
   top = lua_gettop(L);
 
-  if(v_get_profile_fn(L, profile, "frame")) {
+  if(v_prof_get_fn(L, profile, "frame")) {
     int err;
 
     //v_debug("channel(%d)->frame(%d) ...", chnum, frnum);
@@ -1230,7 +1242,7 @@ frame. channel doesn't exist before the start, but why isn't channo passed for
 frame? And why is it for close? Can I make all 3 use channo?  Should I make the
 last two pass a channel?
 */
-static int v_profiles_register(lua_State* L)
+static int vl_profiles_register(lua_State* L)
 {
   const char* profile = v_arg_string(L, 2, "profile", NULL);
   /* stack: vortex, args, profile */
@@ -1274,7 +1286,7 @@ Deinitialize the vortex library.
 
 Ref: vortex_exit()
 */
-int v_exit(lua_State* L)
+int vl_exit(lua_State* L)
 {
   lua_getfield(L, 1, "_profiles");
   lua_getfield(L, 1, "_objects");
@@ -1284,7 +1296,7 @@ int v_exit(lua_State* L)
   // Allow worker threads to cleanup.
 
   vortex_exit();
-//vortex_thread_pool_exit ();
+  vortex_thread_pool_exit ();
 
   LOCK();
 
@@ -1306,7 +1318,7 @@ TODO - all callback functions called on_? on_start, on_close, on_frame, ...?
 
 Ref: vortex_listener_new()
 */
-static int v_listener_new(lua_State* L)
+static int vl_listener_new(lua_State* L)
 {
   const char* host = v_arg_string(L, 2, "host", "0.0.0.0");
   const char* port = v_arg_string(L, 2, "port", 0);
@@ -1325,12 +1337,9 @@ Will return when vortex:listener_unlock() is called.
 
 Ref: vortex_listener_wait()
 */
-static int v_listener_wait(lua_State* L)
+static int vl_listener_wait(lua_State* L)
 {
   v_debug_stack(L);
-
-  lua_getfield(L, 1, "_profiles");
-  lua_getfield(L, 1, "_objects");
 
   UNLOCK();
 
@@ -1349,15 +1358,9 @@ processing.
 
 Until listener_wait() is called again no further vortex activity will occur.
 */
-static int v_listener_unlock(lua_State* L)
+static int vl_listener_unlock(lua_State* L)
 {
-  //v_debug("vortex:listener_unlock()");
-
-  /*
-   FIXME - causes deadlock if there are open channels, should NOOP if there are open
-   channels
-  */
-  //vortex_listener_unlock();
+  vortex_listener_unlock();
 
   return 0;
 }
@@ -1365,11 +1368,11 @@ static int v_listener_unlock(lua_State* L)
 
 static const struct luaL_reg v_methods[] = {
   // listener_unblock
-  { "exit",               v_exit },
-  { "profiles_register",  v_profiles_register },
-  { "listener_new",       v_listener_new },
-  { "listener_wait",      v_listener_wait },
-  { "listener_unlock",    v_listener_unlock },
+  { "exit",               vl_exit },
+  { "profiles_register",  vl_profiles_register },
+  { "listener_new",       vl_listener_new },
+  { "listener_wait",      vl_listener_wait },
+  { "listener_unlock",    vl_listener_unlock },
   // log_enable{status=bool, color=bool}
   // connection_status
   //    table for connection close handler, and connection accept handler

@@ -27,9 +27,9 @@ vortex:profiles_register{
     chan:send_rpy(frame:msgno(), "ok")
     if frame:payload() == "x" then
       print"..."
-      print("conn:close() -> "..conn:close())
+      print("conn:close() -> "..tostring(conn:close()))
       vortex:listener_unlock()
-      print"vortex:listener_unlock()"
+      print"vortex:listener_unlock() done"
     end
   end,
 }
