@@ -420,6 +420,33 @@ gboolean v_on_connection_accepted(VortexConnection * connection, gpointer user_d
 }
 */
 
+#if 0
+// FIXME - stack invariant not held..., the invariant stack is NOT a good idea
+// anymore, not for multithreaded code!
+/*-
+-- ok = conn:close()
+
+Close connection.
+
+Ref: vortex_connection_close()
+*/
+int v_connection_close(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  int b;
+
+  UNLOCK()
+
+  b = vortex_connection_close(*ud);
+
+  LOCK();
+
+  lua_pushboolean(L, b);
+
+  return 1;
+}
+#endif
+
 /*-
 -- host = conn:host()
 
@@ -495,6 +522,7 @@ int v_connection_chan(lua_State* L)
 static const struct luaL_reg v_connection_methods[] = {
   { "__gc",           v_connection_gc },
   { "__tostring",     v_connection_tostring },
+//{ "close",          v_connection_close },
   { "host",           v_connection_host }, // This is remote host/port, not local.
   { "port",           v_connection_port }, // Name should reflect this, and need other APIs for local.
   { "id",             v_connection_id },
@@ -1256,6 +1284,7 @@ int v_exit(lua_State* L)
   // Allow worker threads to cleanup.
 
   vortex_exit();
+//vortex_thread_pool_exit ();
 
   LOCK();
 
@@ -1322,10 +1351,13 @@ Until listener_wait() is called again no further vortex activity will occur.
 */
 static int v_listener_unlock(lua_State* L)
 {
+  //v_debug("vortex:listener_unlock()");
+
   /*
    FIXME - causes deadlock if there are open channels, should NOOP if there are open
    channels
   */
+  //vortex_listener_unlock();
 
   return 0;
 }
