@@ -70,4 +70,4 @@ vortex:listener_new{port=44000}
 vortex:listener_wait()
 vortex:exit()
 
--- vim:ft=lua:
+-- vim:ft=lua:sw=2:sts=2:et:
