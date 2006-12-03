@@ -29,6 +29,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#define G_LOG_DOMAIN "swirl"
+#define V_MAIN  "vortex"
+
 #include "lauxlib.h"
 #include "lua.h"
 
@@ -39,17 +42,17 @@ SOFTWARE.
 #include <stdio.h>
 #include <pthread.h>
 
-#define G_LOG_DOMAIN "vortex/lua"
+/** global definitions **/
 
 #include <vortex.h>
+
+#include "vcom.h"
 
 #define V_FRAME_REGID      "VortexFrame"      //"0C5353ED-6DD0-11DB-852B-000393AD088C"
 #define V_CHANNEL_REGID    "VortexChannel"    //"363C4518-6DFB-11DB-9133-000393AD088C"
 #define V_CONNECTION_REGID "VortexConnection"
 
 static void v_channel_push(lua_State* L, VortexChannel* channel);
-
-#define V_MAIN  "vortex"
 
 /*
 Used to protect the lua state from callbacks. Only one active thread is allowed
@@ -88,12 +91,102 @@ pthread_mutex_t v_lua_enter = PTHREAD_MUTEX_INITIALIZER;
   lua_getfield(L, 1, "_objects");
 */
 
-/** objects **/
+/* traceback is passed to v_pcall */
+static int v_traceback (lua_State *L) {
+  lua_getfield(L, LUA_GLOBALSINDEX, "debug");
+  if (!lua_istable(L, -1)) {
+    lua_pop(L, 1);
+    return 1;
+  }
+  lua_getfield(L, -1, "traceback");
+  if (!lua_isfunction(L, -1)) {
+    lua_pop(L, 2);
+    return 1;
+  }
+  lua_pushvalue(L, 1);  /* pass error message */
+  lua_pushinteger(L, 2);  /* skip this function and traceback */
+  lua_call(L, 2, 1);  /* call debug.traceback */
+  return 1;
+}
+
+/*
+pcall wrapper, logging what errors, or aborting on internal errors (error
+handler failed, or out of memory)
+*/
+static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
+{
+  int err;
+  int base = lua_gettop(L) - nargs;
+  lua_pushcfunction(L, v_traceback);
+  lua_insert(L, base);
+  err = lua_pcall(L, nargs, nresults, base);
+  lua_remove(L, base);
+  switch(err)
+  {
+    case 0:
+      break;
+    case LUA_ERRRUN:
+      // code errored, not fatal
+      g_warning("error calling `%s' - %s", what, lua_tostring(L, -1));
+      v_debug("error calling `%s' - %s", what, lua_tostring(L, -1));
+      lua_pop(L, 1);
+      break;
+    default:
+      g_error("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
+      v_debug("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
+      break;
+  }
+
+  return err;
+}
+
+/* Support for registering (non-profile-based) callbacks. */
+struct OnCb {
+  lua_State* L;
+  int fnref;
+};
+
+/* Creates callback from fn at top of stack, and pops it. */
+static
+struct OnCb* v_cb_new(lua_State* L)
+{
+  struct OnCb* cb = g_new0(struct OnCb, 1);
+  cb->L = L;
+  cb->fnref = luaL_ref(L, LUA_REGISTRYINDEX);
+  return cb;
+}
+
+/* Calls cb with the nargs at top of stack, leaving nresults, and freeing and unrefing the cb. */
+static
+int v_cb_call_and_release(struct OnCb** pcb, const char* what, int nargs, int nresults)
+{
+  struct OnCb* cb = *pcb;
+  struct lua_State* L = cb->L;
+  int e = 0;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, cb->fnref);
+  luaL_unref(cb->L, LUA_REGISTRYINDEX, cb->fnref);
+
+  if(lua_isnil(L, -1)) {
+    lua_pop(L, 1);
+  } else {
+    /* put the fn under the args, then call */
+    lua_insert(L, lua_gettop(L) - nargs);
+    v_debug_stack(L);
+    e = v_pcall(L, what, nargs, nresults);
+  }
+
+  g_free(cb);
+  *pcb = 0;
+
+  return e;
+}
+
 
 /* Get vortex. */
 static void v_get_table(lua_State* L)
 {
-  lua_getfield(L, LUA_GLOBALSINDEX, "vortex");
+  lua_getfield(L, LUA_GLOBALSINDEX, V_MAIN);
   g_assert(lua_istable(L, -1));
 }
 
@@ -165,44 +258,6 @@ static void v_obj_set(lua_State* L, void* addr)
   lua_settop(L, top);
 }
 
-#define BSTR(x) ((x) ? 't' : 'f')
-
-static void v_debug(const char* fmt, ...)
-{
-  va_list ap;
-  va_start(ap, fmt);
-  // goes where? g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, fmt, ap);
-  fprintf(stdout, "_");
-  vfprintf(stdout, fmt, ap);
-  fprintf(stdout, "\n");
-  va_end(ap);
-}
-
-static void v_debug_stack(lua_State* L)
-{
-  int i;
-  for(i = 1; i <= lua_gettop(L); i++) {
-    if(i > 1)
-      printf(" ");
-    printf("[%d] %s:", i, lua_typename(L, lua_type(L, i)));
-    switch(lua_type(L, i)) {
-      case LUA_TSTRING:
-        printf("'%s'", lua_tostring(L, i));
-        break;
-      case LUA_TNUMBER:
-        printf("%g", lua_tonumber(L, i));
-        break;
-      case LUA_TBOOLEAN:
-        printf("%s", lua_toboolean(L, i) ? "true" : "false");
-        break;
-        /* TODO - print USERDATA type, by checking metatable */
-      default:
-        break;
-    }
-  }
-  printf("\n");
-}
-
 /*
 Get field from arg table, errors if argt is not a table, returns
 0 if field not found, otherwise pushes field value and returns
@@ -244,52 +299,26 @@ const char* v_arg_string(lua_State* L, int argt, const char* field, const char* 
   return lua_tostring(L, -1);
 }
 
-static int v_traceback (lua_State *L) {
-  lua_getfield(L, LUA_GLOBALSINDEX, "debug");
-  if (!lua_istable(L, -1)) {
-    lua_pop(L, 1);
-    return 1;
-  }
-  lua_getfield(L, -1, "traceback");
-  if (!lua_isfunction(L, -1)) {
-    lua_pop(L, 2);
-    return 1;
-  }
-  lua_pushvalue(L, 1);  /* pass error message */
-  lua_pushinteger(L, 2);  /* skip this function and traceback */
-  lua_call(L, 2, 1);  /* call debug.traceback */
-  return 1;
-}
-
-/*
-pcall wrapper, logging what errors, or aborting on internal errors (error
-handler failed, or out of memory)
-*/
-static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
+static
+int v_arg_fn(lua_State* L, int argt, const char* field, int def)
 {
-  int err;
-  int base = lua_gettop(L) - nargs;
-  lua_pushcfunction(L, v_traceback);
-  lua_insert(L, base);
-  err = lua_pcall(L, nargs, nresults, base);
-  lua_remove(L, base);
-  switch(err)
+  if(!v_arg(L, argt, field))
   {
-    case 0:
-      break;
-    case LUA_ERRRUN:
-      // code errored, not fatal
-      g_warning("error calling `%s' - %s", what, lua_tostring(L, -1));
-      v_debug("error calling `%s' - %s", what, lua_tostring(L, -1));
-      lua_pop(L, 1);
-      break;
-    default:
-      g_error("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
-      v_debug("error calling `%s' - %s", what, err == LUA_ERRMEM ? "out of memory" : "error handler errored");
-      break;
+    if(def) {
+      lua_pushnil(L);
+      return 0;
+    } else {
+      const char* msg = lua_pushfstring(L, "%s is missing", field);
+      luaL_argerror(L, argt, msg);
+    }
   }
 
-  return err;
+  if(!lua_isfunction(L, -1)) {
+    const char* msg = lua_pushfstring(L, "%s is not a function", field);
+    luaL_argerror(L, argt, msg);
+  }
+
+  return lua_gettop(L);
 }
 
 /** miscellaneous light weight vortex objects **/
@@ -326,6 +355,17 @@ const char* v_encoding_str(VortexEncoding encoding)
     case EncodingUnknown: break;
   }
   return "unknown";
+}
+
+static
+VortexEncoding v_encoding_enum(const char* str)
+{
+  if(0 == strcmp(str, "none")) {
+    return EncodingNone;
+  } else if(0 == strcmp(str, "base64")) {
+    return EncodingBase64;
+  }
+  return EncodingUnknown;
 }
 
 static
@@ -474,6 +514,20 @@ int vl_connection_close(lua_State* L)
 }
 
 /*-
+-- bool = conn:ok()
+
+Whether connection is connected.
+
+Ref: vortex_connection_is_ok()
+*/
+int vl_connection_ok(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  lua_pushboolean(L, vortex_connection_is_ok(*ud, 0));
+  return 1;
+}
+
+/*-
 -- host = conn:host()
 
 Host name of connection.
@@ -545,15 +599,78 @@ int vl_connection_chan(lua_State* L)
   return 1;
 }
 
+/*-
+-- conn:channel_new{profile=str, encoding=<none|base64>, content=str, on_created=fn(chan)}
+*/
+struct OnChannelCreated {
+  lua_State* L;
+  int fnref;
+};
+
+static
+void v_on_channel_created(gint channo, VortexChannel* chan, gpointer user_data)
+{
+  struct OnCb* on_created = user_data;
+  lua_State* L = on_created->L;
+
+  (void) channo;
+
+  LOCK();
+
+  v_channel_push(L, chan);
+  v_cb_call_and_release(&on_created, "channel->on_created", 1, 0);
+
+  UNLOCK();
+}
+
+static
+int vl_connection_channel_new(lua_State* L)
+{
+  VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
+  const char* profile = v_arg_string(L, 2, "profile", 0);
+  const char* encoding_str = v_arg_string(L, 2, "encoding", "none");
+  VortexEncoding encoding = v_encoding_enum(encoding_str);
+  const char* content = v_arg_string(L, 2, "content", "");
+  size_t content_sz = 0;
+  lua_tolstring(L, -1, &content_sz);
+
+  v_prof_get(L, profile);
+
+  luaL_argcheck(L, lua_toboolean(L, -1), 2, "new channel for unregistered profile");
+  luaL_argcheck(L, encoding != EncodingUnknown, 2, "encoding type unknown");
+
+  v_arg_fn(L, 2, "on_created", 1);
+
+  {
+    struct OnCb* cb = v_cb_new(L);
+
+    vortex_channel_new_full(
+        *ud,
+        0, /* auto-choose channel number */
+        NULL, /* TODO - serverName */
+        (gchar*)profile,
+        encoding,
+        (gchar*)content, content_sz,
+        0, 0, /* on_close */
+        0, 0, /* on_frame */
+        v_on_channel_created, cb
+        );
+  }
+
+  return 0;
+}
+
 static const struct luaL_reg v_connection_methods[] = {
   { "__gc",           vl_connection_gc },
   { "__tostring",     vl_connection_tostring },
   { "close",          vl_connection_close },
+  { "ok",             vl_connection_ok },
   { "host",           vl_connection_host }, // This is remote host/port, not local.
   { "port",           vl_connection_port }, // Name should reflect this, and need other APIs for local.
   { "id",             vl_connection_id },
   { "features",       vl_connection_features },
   { "chan",           vl_connection_chan },
+  { "channel_new",    vl_connection_channel_new },
 //{ "role",           vl_connection_role },
   { NULL, NULL }
 };
@@ -1094,6 +1211,11 @@ static const struct luaL_reg v_frame_methods[] = {
 
 /*-
 ** vortex - profile registration and application management
+
+
+TODO
+
+- all callback functions called on_? on_start, on_close, on_frame, ...?
 */
 
 static
@@ -1310,11 +1432,11 @@ Creates a new listener on host and port.
 
 Host is optional, it defaults to INADDR_ANY ("0.0.0.0").
 
+TODO - Port should be optional, so it can default to an ephemeral port.
+
 TODO - accept a table of arguments:
   on_ready=
   on_accept=
-
-TODO - all callback functions called on_? on_start, on_close, on_frame, ...?
 
 Ref: vortex_listener_new()
 */
@@ -1365,6 +1487,76 @@ static int vl_listener_unlock(lua_State* L)
   return 0;
 }
 
+/*-
+-- vortex:connection_new{host=str, port=str, on_connected=fn(conn)}
+
+host to connect to, optional, defaults to 127.0.0.1
+
+port to connect to
+
+on_connected, a function that will be called with the connection when
+it is established. Note that the connection may not be connected, call
+conn:ok() to determine if it was successful!
+
+If you don't provide the on_connected, you won't get a connection object, so
+the connection will be effectively unusable unless the listener makes a
+connection back to you!
+*/
+static void v_on_connected(VortexConnection* connection, gpointer user_data)
+{
+  struct OnCb* on_connected = user_data;
+  lua_State* L = on_connected->L;
+
+  LOCK();
+
+  v_connection_push(L, connection);
+  v_cb_call_and_release(&on_connected, "connection->on_connected", 1, 0);
+
+  UNLOCK();
+}
+
+static
+int vl_connection_new(lua_State* L)
+{
+  const char* host = v_arg_string(L, 2, "host", "127.0.0.1");
+  const char* port = v_arg_string(L, 2, "port", 0);
+  
+  v_arg_fn(L, 2, "on_connected", 1);
+  
+  {
+    struct OnCb* cb = v_cb_new(L);
+    vortex_connection_new((gchar*)host, (gchar*)port, v_on_connected, cb);
+  }
+
+  return 0;
+}
+
+/*-
+-- vortex:log_enable(["no"|"yes"|"color"])
+
+Enable log ("yes", or no options), enable color log ("color"), or
+disable log ("no").
+
+Ref: vortex_color_log_enable()
+Ref: vortex_log_enable()
+*/
+static
+int vl_log_enable(lua_State* L)
+{
+  const char* options[] = { "no", "yes", "color", NULL };
+  int opt = luaL_checkoption(L, 2, "yes", options);
+  int enable = 0;
+  int color = 0;
+  switch(opt) {
+    case 0: break;
+    case 1: enable = 1; break;
+    default: enable = color = 1;
+  }
+  vortex_log_enable(enable);
+  vortex_color_log_enable(enable);
+
+  return 0;
+}
 
 static const struct luaL_reg v_methods[] = {
   // listener_unblock
@@ -1373,7 +1565,8 @@ static const struct luaL_reg v_methods[] = {
   { "listener_new",       vl_listener_new },
   { "listener_wait",      vl_listener_wait },
   { "listener_unlock",    vl_listener_unlock },
-  // log_enable{status=bool, color=bool}
+  { "connection_new",     vl_connection_new },
+  { "log_enable",         vl_log_enable },
   // connection_status
   //    table for connection close handler, and connection accept handler
   { NULL, NULL }
@@ -1387,6 +1580,18 @@ void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg meth
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 }
+
+#if 0
+gboolean on_accepted (VortexConnection * connection, gpointer data)
+{
+	g_print ("New connection accepted from: %s:%s\n",
+		 vortex_connection_get_host (connection),
+		 vortex_connection_get_port (connection));
+
+	/* return TRUE to accept the connection to be created */
+	return TRUE;
+}
+#endif
 
 int luaopen_vortex(lua_State* L)
 {
@@ -1412,6 +1617,9 @@ int luaopen_vortex(lua_State* L)
   lua_setfield(L, -2, "_objects");
 
   {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
+
+  //vortex_log_enable(1);
+  //vortex_color_log_enable(1);
 
   vortex_init();
 
