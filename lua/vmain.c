@@ -146,19 +146,24 @@ struct OnCb {
   int fnref;
 };
 
-/* Creates callback from fn at top of stack, and pops it. */
+/* Creates callback from fn (or nil) at top of stack), and pops it. Errors if
+ * other than a fn or nil is at top of stack.
+ */
 static
 struct OnCb* v_cb_new(lua_State* L)
 {
+  if(!lua_isnil(L, -1))
+  luaL_checktype(L, -1, LUA_TFUNCTION);
+
   struct OnCb* cb = g_new0(struct OnCb, 1);
   cb->L = L;
   cb->fnref = luaL_ref(L, LUA_REGISTRYINDEX);
   return cb;
 }
 
-/* Calls cb with the nargs at top of stack, leaving nresults, and freeing and unrefing the cb. */
+/* Calls cb with the nargs at top of stack, and freeing and unrefing the cb. */
 static
-int v_cb_call_and_release(struct OnCb** pcb, const char* what, int nargs, int nresults)
+int v_cb_call_and_release(struct OnCb** pcb, const char* what, int nargs)
 {
   struct OnCb* cb = *pcb;
   struct lua_State* L = cb->L;
@@ -168,12 +173,13 @@ int v_cb_call_and_release(struct OnCb** pcb, const char* what, int nargs, int nr
   luaL_unref(cb->L, LUA_REGISTRYINDEX, cb->fnref);
 
   if(lua_isnil(L, -1)) {
-    lua_pop(L, 1);
+    /* pop the nil, and the args */
+    lua_pop(L, 1 + nargs);
   } else {
     /* put the fn under the args, then call */
     lua_insert(L, lua_gettop(L) - nargs);
-    v_debug_stack(L);
-    e = v_pcall(L, what, nargs, nresults);
+    //v_debug_stack(L);
+    e = v_pcall(L, what, nargs, 0);
   }
 
   g_free(cb);
@@ -440,8 +446,6 @@ void v_connection_push(lua_State* L, VortexConnection* connection)
   /* Either way, user-data is now at top of stack. */
 }
 
-/*
-// TODO - use these for delivering callbacks later, not needed for obj lifetime tracking
 static
 void v_on_connection_closed(VortexConnection* connection, gpointer user_data)
 {
@@ -449,11 +453,7 @@ void v_on_connection_closed(VortexConnection* connection, gpointer user_data)
 
   LOCK();
 
-  v_debug("->connection close %p %s %s",
-      connection,
-      vortex_connection_get_host(connection),
-      vortex_connection_get_port(connection)
-      );
+  (void) L; // what callback to call?
 
   UNLOCK();
 }
@@ -466,19 +466,14 @@ gboolean v_on_connection_accepted(VortexConnection * connection, gpointer user_d
 
   LOCK();
 
-  v_debug("->connection accept %p %s %s",
-      connection,
-      vortex_connection_get_host(connection),
-      vortex_connection_get_port(connection)
-      );
-
+  (void) L;
+  
   vortex_connection_set_on_close_full(connection, v_on_connection_closed, user_data);
 
   UNLOCK();
 
   return ok;
 }
-*/
 
 /*-
 -- ok = conn:close()
@@ -492,7 +487,7 @@ int vl_connection_close(lua_State* L)
   VortexConnection** ud = luaL_checkudata(L, 1, V_CONNECTION_REGID);
   int b;
 
-  UNLOCK()
+  //UNLOCK()
 
   // vortex_connection_close does an unref on success... but
   // we are trying to keep connection object around until lua
@@ -506,7 +501,7 @@ int vl_connection_close(lua_State* L)
     vortex_connection_unref(*ud, "lua/conn:close()");
   }
 
-  LOCK();
+  //LOCK();
 
   lua_pushboolean(L, b);
 
@@ -618,7 +613,7 @@ void v_on_channel_created(gint channo, VortexChannel* chan, gpointer user_data)
   LOCK();
 
   v_channel_push(L, chan);
-  v_cb_call_and_release(&on_created, "channel->on_created", 1, 0);
+  v_cb_call_and_release(&on_created, "channel->on_created", 1);
 
   UNLOCK();
 }
@@ -693,7 +688,7 @@ struct ChannelCollect
   lua_State* L;
 };
 
-static void v_channel_collect(gpointer v)
+static void v_on_channel_collect(gpointer v)
 {
   struct ChannelCollect* collect = v;
   lua_State* L = collect->L;
@@ -743,7 +738,7 @@ static void v_channel_push(lua_State* L, VortexChannel* channel)
       struct ChannelCollect* collect = malloc(sizeof(*collect));
       collect->L = L;
       collect->channel = channel;
-      vortex_channel_set_data_full(channel, "channel", collect, NULL, v_channel_collect);
+      vortex_channel_set_data_full(channel, "channel", collect, NULL, v_on_channel_collect);
     }
 
     v_debug("CREATE: %s - %p", V_CHANNEL_REGID, *ud);
@@ -840,8 +835,9 @@ static int vl_channel_send_msg(lua_State* L)
 
   ok = vortex_channel_send_msg(*ud, payload, payload_sz, &msgno);
 
-  //v_debug("channel(%d):send_msg() => %c, %d", vortex_channel_get_number(*ud), BSTR(ok), msgno);
+  v_debug("channel(%d):send_msg() => %c, %d", vortex_channel_get_number(*ud), BSTR(ok), msgno);
 
+  // FIXME - return msgno, or nil "err string"
   if(!ok)
     luaL_error(L, "vortex_channel_send_msg");
 
@@ -959,6 +955,51 @@ static int vl_channel_send_nul(lua_State* L)
   return 0;
 }
 
+/*-
+-- chan:close([fn(conn, channo, was_closed, code, msg)])
+
+fn is optional
+
+was_closed is a boolean, code is a string, msg is a string
+
+Ref: vortex_channel_close()
+Ref: VortexOnClosedNotification
+*/
+static
+void v_on_channel_closed(
+    VortexConnection* connection,
+    gboolean was_closed,
+    gint channo,
+    const gchar* code,
+    const gchar* msg,
+    gpointer user_data)
+{
+  struct OnCb* cb = user_data;
+  lua_State* L = cb->L;
+
+  LOCK();
+
+  v_connection_push(L, connection);
+  lua_pushinteger(L, channo);
+  lua_pushboolean(L, was_closed);
+  lua_pushstring(L, code);
+  lua_pushstring(L, msg);
+  v_cb_call_and_release(&cb, "connection->on_connected", 5);
+
+  UNLOCK();
+}
+static
+int vl_channel_close(lua_State* L)
+{
+  VortexChannel** ud = luaL_checkudata(L, 1, V_CHANNEL_REGID);
+  luaL_argcheck(L, *ud, 1, "channel has been collected");
+
+  if(lua_gettop(L) > 1) {
+    vortex_channel_close_full(*ud, v_on_channel_closed, v_cb_new(L));
+  }
+  return 0;
+}
+
 static const struct luaL_reg v_channel_methods[] = {
   { "__tostring",         vl_channel_tostring },
   { "exists",             vl_channel_exists },
@@ -968,6 +1009,7 @@ static const struct luaL_reg v_channel_methods[] = {
   { "send_err",           vl_channel_send_err },
   { "send_ans",           vl_channel_send_ans },
   { "send_nul",           vl_channel_send_nul },
+  { "close",              vl_channel_close },
   { NULL, NULL }
 };
 
@@ -1356,6 +1398,7 @@ The frame fn is:
 
 The close fn is:
   ok = function(chan, conn)
+
 ok is true to accept the channel close, false to refuse channel close.
 
 
@@ -1417,8 +1460,8 @@ int vl_exit(lua_State* L)
 
   // Allow worker threads to cleanup.
 
-  vortex_exit();
   vortex_thread_pool_exit ();
+  vortex_exit();
 
   LOCK();
 
@@ -1509,8 +1552,13 @@ static void v_on_connected(VortexConnection* connection, gpointer user_data)
 
   LOCK();
 
+  // FIXME - if connection was no succesful, we can find out, and maybe shouldn't
+  // register the callback? Will the callback even be called, after all, it
+  // didn't get connected...
+  vortex_connection_set_on_close_full(connection, v_on_connection_closed, user_data);
+
   v_connection_push(L, connection);
-  v_cb_call_and_release(&on_connected, "connection->on_connected", 1, 0);
+  v_cb_call_and_release(&on_connected, "connection->on_connected", 1);
 
   UNLOCK();
 }
@@ -1553,13 +1601,12 @@ int vl_log_enable(lua_State* L)
     default: enable = color = 1;
   }
   vortex_log_enable(enable);
-  vortex_color_log_enable(enable);
+  vortex_color_log_enable(color);
 
   return 0;
 }
 
 static const struct luaL_reg v_methods[] = {
-  // listener_unblock
   { "exit",               vl_exit },
   { "profiles_register",  vl_profiles_register },
   { "listener_new",       vl_listener_new },
@@ -1580,18 +1627,6 @@ void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg meth
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
 }
-
-#if 0
-gboolean on_accepted (VortexConnection * connection, gpointer data)
-{
-	g_print ("New connection accepted from: %s:%s\n",
-		 vortex_connection_get_host (connection),
-		 vortex_connection_get_port (connection));
-
-	/* return TRUE to accept the connection to be created */
-	return TRUE;
-}
-#endif
 
 int luaopen_vortex(lua_State* L)
 {
@@ -1618,12 +1653,10 @@ int luaopen_vortex(lua_State* L)
 
   {int e=pthread_mutex_lock(&v_lua_enter); assert(!e);}
 
-  //vortex_log_enable(1);
-  //vortex_color_log_enable(1);
-
   vortex_init();
+  vortex_listener_init(); /* not called by _init, why? */
 
-  //vortex_listener_set_on_connection_accepted(v_on_connection_accepted, L);
+  vortex_listener_set_on_connection_accepted(v_on_connection_accepted, L);
 
   v_debug_stack(L);
 
