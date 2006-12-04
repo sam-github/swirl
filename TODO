@@ -1,39 +1,140 @@
+
+- client, clean close
+
+  a)
+    - on_frame: close connection (after receive reply)
+    - on_connection_destroyed: unlock listener
+    - listener_wait returns: exit
+
+- client, clean wait
+
+    need listener_wait, with no listener
+
+    unlock returns in threaded mode, when true is pushed on a q
+
+
+** FLOW CONTROL
+
+Appears that on_frame gets called on its own thread, but not other
+handlers?
+
+
+1-
+
+c busy in on_created, frame handlers can't run
+d replying, eventually reply blocks
+
+c can send messages forever, never blocks, never returns false!
+
+-> BUG: after 123621 messages (with d blocked), I kill d, and client dies
+with SIGPIPE! SIGPIPE isn't being caught? Do I have to do this?
+
+2-
+
+
+c busy in on_created, frame handlers can't run
+d doesn't reply
+
+c free-runs forever, or at least past 200,000
+
+mem usage slowly increasing, will die eventually, i guess
+
+
+
+
+
+]]
+
+
+--[[
+vortex_exit() first, or vortex_thread_pool_exit()?
+
+No way to abruptly tear down a connection?
+
+No way to find all open connections, and close them?
+
+vortex needs a way to join all its threads?
+
+per-channel/connection callbacks are handy in C, but necessary in lua? Maybe
+force global callback table, and one table per profile?
+
+Given that, its possible to do wrappers. For example, send_msg, with a function
+to be called for each frame received in reply can be implemented by registering
+a callback for that conn/chan/msgno, and wrapped into a nice one-shot function.
+
+I think all callbacks fall into the category of "happens on a connection" (no
+profile) or happens on a channel (has profile).
+
+I like, on client side, being able to write code like the below, where code
+that happens later is just passed as a block...
+
+]]
+
+
+
+
+- error handling:
+
+  Maybe I should call a user-defined function with some
+  context, and let it figure out what to do? And default to vortex_exit?
+
+  or just call lua_call, and let everything go to hell?
+
+
+
 Note:
+
+- vortex_channel_close: doesn't take user-data, so you have to save state somewhere else,
+  and find state based on args...
+
+  but, its only arg is a channel number, which isn't unique (channel number on which
+  connection?), so I think I'm in trouble...
+
+
+- vortex_listener_init docs say it should be called by vortex_init, but it isn't, why?
+
+  I am calling it myself, so that vortex_listener_wait is callable.
+
+  Also, vortex_listener_unlock() destroys the queue? If so, why not use a condition
+  variable instread of a queue?
+
+  And if it destroys the queue, doesn't that mean wait can't get called again?
+
+  I'm a little baffled.
+
 
 - vortex_greetings_send: docs are the copyright!
 
-- vortex_channel_send_rpy(): ... actually, it appears const isn't used
-  anywhere, why not?
-
-- profiles_register(): uri is strduped, contrary to docs, so it could be
-  const gchar* (also, uri doesn't appear to be freed)
-
-  profiles are never unregistered? I have no way to know when to free the
-  user-data, currently I just leak it, though since only one call to
-  vortex_init is allowed, its not a recurring leak.
-
-- is calling vortex_exit() in a callback the right way to stop  the
-  listener? When I do it in the channel close callback, the client never
-  seems to get clean shutdown.
+   http://www.aspl.es/fact/files/af-arch/vortex/html/group__vortex__greetings_ga4a0cb8d16f9b8a34c069d8f25360af7.html#ga4a0cb8d16f9b8a34c069d8f25360af7
 
 - does BEEP allow discovery of a peer that has died? the simple client
   and server never timeout when the other side crashes.
 
-- shouldn't the connection accept callback be associated with a profile,
-  instead of global?
+- VortexOnStartChannelExtended: no way to set the encoding for
+  profile_content_reply?  Also, profile_content_reply is freed with g_free
+  (undocumented but semi-obvious), can it have been allocated with strdup()?
 
-- vortex_color_log_enable: where does the log go?
+- is there a way to force close a channel where the peer doesn't get to deny the
+  close? I.e., on error, maybe the peer is sending garbage data or violating the
+  contract of the profile?
+  
+  I suspect that BEEP doesn't allow this, so you have to close an entire
+  connection, maybe at the tcp level, on error.
 
-- VortexOnStartChannelExtended: no way to set the encoding for profile_content_reply?
-  Also, profile_content_reply is freed with g_free (undocumented but
-  semi-obvious), can it have been allocated with strdup()?
+- but how to force close a connection, i.e., when there has been an error in a
+  lua callback handler? vortex_close_connection does a clean close, it
+  asks the peer. Is it a missing API, or am I misunderstanding?
 
+  For example, in HTTP, I can do an (unclean) termination at any time just
+  by closing the tcp socket. Does BEEP discourage this?
+
+  
 ++
 
-Object lifetime:
+Callback structure:
 
-listener:
-start:vortex_listener_new
+vortex_listener_new/ (passive)
+    VortexListenerReady - after tcp setup, indicates sucs/fail
 
 connection:
 
@@ -44,14 +145,37 @@ connection:
 - vortex_connection_set_on_close_full/
     VortexConnectionOnCloseFull
 
-vortex_connection_ref, for what purpose?
+
+connection-level callbacks:
+
+  on_connected(conn)
+  - per-connection
+  - set from vortex:connection_new()
+  - needs to be set here because there is no return value from connection_new
+    so no way to associate this new connection with a specific action except
+    the callback
+  - should there be a global as well? useful for connection tracking
+
+  ok = on_accepted(conn)
+  - global
+  - needs to be global, because 
+  - at what time in BEEP connection does this occur, is it possible to
+    get remote profiles and features, for example?
+
+
+  on_closed()
+  - per-connection
+  - called if on_accepted or on_connected was unsucessful?
+  - not sure if I like having to attach it explicitly, its
+
 
 
 channel:
 
 - vortex_profiles_register/ (passive)
-    VortexOnStartChannel (don't use)
-    VortexOnCloseChannel (allows peer to refuse close)
+    VortexOnStartChannel
+    VortexOnCloseChannel
+    VortexOnFrameReceived
 
 - vortex_profiles_register_extended_start/
     VortexOnStartChannelExtended
@@ -64,7 +188,8 @@ channel:
 - vortex_channel_close/ (active)
     VortexOnClosedNotification
 
-frame:
+
+
 
 
 
