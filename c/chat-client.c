@@ -1,6 +1,20 @@
 #include <vortex.h>
 
-#define PLAIN_PROFILE "http://beep.ensembleindependant.org/profiles/plain_profile"
+static
+const char* v_frametype_str(VortexFrameType frametype)
+{
+  switch(frametype)
+  {
+    case VORTEX_FRAME_TYPE_MSG: return "msg";
+    case VORTEX_FRAME_TYPE_RPY: return "rpy";
+    case VORTEX_FRAME_TYPE_ANS: return "ans";
+    case VORTEX_FRAME_TYPE_ERR: return "err";
+    case VORTEX_FRAME_TYPE_NUL: return "nul";
+    case VORTEX_FRAME_TYPE_SEQ: return "seq";
+    case VORTEX_FRAME_TYPE_UNKNOWN: break;
+  }
+  return "unknown";
+}
 
 static
 void on_frame_received (VortexChannel    * channel,
@@ -8,19 +22,31 @@ void on_frame_received (VortexChannel    * channel,
 		     VortexFrame      * frame,
 		     gpointer           user_data)
 {
+  printf("frame#%d/%s\n",
+      vortex_frame_get_msgno(frame),
+      v_frametype_str(vortex_frame_get_type(frame))
+      );
+
   write(1, vortex_frame_get_payload(frame), vortex_frame_get_payload_size(frame));
+  printf("\n");
 
   vortex_channel_send_rpy(channel, "", 0, vortex_frame_get_msgno(frame));
 }
 
-gint main (gint argc, gchar ** argv)
+int main (int argc, char ** argv)
 {
   VortexConnection * connection = NULL;
   VortexChannel    * channel = NULL;
   VortexFrame      * frame = NULL;
   WaitReplyData    * wait_reply = NULL;
   gint               msg_no = NULL;
+  gchar* client = argv[1];
   char input[1024];
+
+  if(!client) {
+    printf("usage: %s username\n", argv[0]);
+    return 1;
+  }
 
   vortex_init ();
 
@@ -40,7 +66,7 @@ gint main (gint argc, gchar ** argv)
       0,
       NULL, // serverName
       "http://beep.ensembleindependant.org/profiles/chat",
-      EncodingNone, "sam/c", 3,
+      EncodingNone, client, strlen(client),
       NULL, NULL, // no close handling
       on_frame_received, NULL, // no frame receive async handling
       NULL, NULL  // no async channel creation

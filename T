@@ -2,7 +2,7 @@
 
 V=~/p/beep/vortex/svn-vortex/src
 A=~/p/beep/vortex/svn-axl/src
-#G=~/p/beep/vortex/svn-axl/src
+G=~/s/glib-2.12.4/g*/*.[ch]
 #L=~/p/lua/local
 L=./local
 

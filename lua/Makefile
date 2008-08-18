@@ -1,6 +1,7 @@
 # Makefile
 
 X = $(wildcard v*.c)
+H = $(wildcard v*.h)
 O = $(X:.c=.o)
 
 L=vortex.so
@@ -20,7 +21,8 @@ run:
 build: $L
 
 LDFLAGS= -g
-CFLAGS= -g -Wall -Werror
+CFLAGS+= -g -Wall -Werror
+CFLAGS+=-DENABLE_VORTEX_LOG
 
 # Vortex flags
 LDLIBS+=$(shell pkg-config --libs vortex)
@@ -35,6 +37,9 @@ export MACOSX_DEPLOYMENT_TARGET
 
 CFLAGS+=-fno-common
 LDFLAGS+=-bundle -undefined dynamic_lookup
+LDFLAGS+=-bind_at_load
+
+$O: $H
 
 $L: $O
 	gcc $(LDFLAGS) -o $@ $^ $(LDLIBS)

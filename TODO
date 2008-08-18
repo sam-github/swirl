@@ -189,7 +189,7 @@ channel:
     VortexOnClosedNotification
 
 
-
+--> if on_start returns false, close is never called
 
 
 
