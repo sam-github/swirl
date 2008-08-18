@@ -1,0 +1,115 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/threaded_os/examples/unix/Makefile.in,v 1.15 2002/03/18 23:48:11 sweetums Exp $
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+MF_CFLAGS=	$(CYRUS_DEFINES) $(CYRUS_INCLUDES)
+
+include $(SRC_ROOT)/Make.defs
+#
+
+VPATH = .:..:../../wrapper:../../utility:../../utility/unix:../../core/generic:../core/generic/unix:../../profiles:../../profiles/unix:
+
+ifdef PURIFY
+    PURECMD = purify -cache-dir=/iw/home/wmills/purify/cache -best-effort  -forbidden-directories=/iw:/var/opt:/usr/lib:/usr/local/lib:/ccs/lib: 
+else
+    PURECMD = 
+endif
+
+SASL_OBJS    = $(SRC_ROOT)/profiles/unix/md5.lo \
+	       $(SRC_ROOT)/profiles/unix/do_hash.lo \
+	       $(SRC_ROOT)/profiles/unix/sasl_general.lo \
+	       $(SRC_ROOT)/profiles/unix/otp_db.lo
+BEEPD_LIBS   = 
+BEEPNG_LIBS  = $(SASL_OBJS) \
+               $(SRC_ROOT)/profiles/unix/libnull-profiles.la \
+	       $(SRC_ROOT)/profiles/unix/libsyslog-raw.la \
+	       $(SRC_ROOT)/profiles/unix/$(SASLP_SLIB) \
+	       $(SRC_ROOT)/profiles/unix/libtls-profile.la
+
+
+LIBFILES = 
+
+#LIBFILES = libbputil.so \
+#	libbptoswrapper.so \
+#	libbeepcore.so \
+#	libbptostransport.so
+
+OBJS = 	 
+
+EXES	= beepd beepng
+
+BIN_INSTALL_DIR = ${DIST_ROOT}/examples
+
+all: $(EXES)
+
+clean:
+	touch foo.o foo.so ; rm -rf *.o *.so $(EXES) *.lo *.la .libs
+
+install: $(BIN_INSTALL_DIR)
+	$(INSTALLBIN) beepd          $(BIN_INSTALL_DIR)
+	$(INSTALLBIN) beepng         $(BIN_INSTALL_DIR)
+	$(INSTALLDAT) ../beepd.cfg   $(BIN_INSTALL_DIR)
+
+$(BIN_INSTALL_DIR):
+	$(INSTALLDIR) $@
+
+#
+#
+#
+
+beepd: beepd.lo $(LIBFILES)
+	$(LDLIBTOOL) $(CC) $(ALL_CFLAGS) beepd.lo -o beepd $(OBJS) \
+		$(SYSLIBS) $(BEEPLIBS) $(BEEPD_LIBS) \
+		$(SSL_LIBS) -lssl $(SSL_LIBS) -lcrypto $(CYRUS_LIBS)
+
+beepng: beepng.lo $(LIBFILES)
+	$(LDLIBTOOL) $(CC) $(ALL_CFLAGS) beepng.lo -o beepng $(OBJS) \
+		$(SYSLIBS) $(BEEPLIBS) $(BEEPNG_LIBS) \
+		$(SSL_LIBS) -lssl $(SSL_LIBS) -lcrypto $(CYRUS_LIBS) -lm
+
+# other libs we need.
+
+#libbputil.so:
+#	cd ../../../utility/unix; make libbputil.so
+#
+#libbeepcore.so: libbputil.so
+#	cd ../../../core/unix; make 
+#
+#libbptoswrapper.so: libbputil.so
+#	cd ../../wrapper/unix; make libbptoswrapper.so
+#
+#libbptostransport.so: libbputil.so
+#	cd ../../transport/unix; make libbptostransport.so
+
+.DEFAULT:
+
+################################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets
+

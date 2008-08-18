@@ -1,0 +1,61 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/threaded_os/wrapper/unix/Makefile.in,v 1.4 2001/11/10 02:34:47 mrose Exp $
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+include $(SRC_ROOT)/Make.defs
+#
+
+VPATH = .:../:../../utility:../../core/generic:../../transport:
+
+OBJS    = 	bp_notify.lo \
+		bp_wrapper.lo \
+		bpc_wrapper.lo \
+		profile_loader.lo
+
+all: ${OBJS} libbptoswrapper.la
+
+clean: 
+	rm -rf *.o *.so *.lo *.la .libs
+
+install: $(LIB_INSTALL_DIR) 
+	$(INSTALLLIB) libbptoswrapper.la $(LIB_INSTALL_DIR)/.
+	$(INSTALLFINISH) $(LIB_INSTALL_DIR)/.
+
+$(LIB_INSTALL_DIR):
+	$(INSTALLDIR) $@
+
+libbptoswrapper.la: $(OBJS)
+	$(LDLIBTOOL) $(CC) -o $@ $(OBJS) $(LIBTOOL_LDFLAGS)
+
+.DEFAULT:
+
+################################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets
+

@@ -1,0 +1,300 @@
+Starting...
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+FIRST CALL
+Start of dump, session at 330C0
+  in_buffer.vec_count=1
+  in_buffer.iov_len[0] = 78
+  in_buffer.iov_base[0] = 33264 = ''
+  out_buffer.vec_count=3
+  out_buffer.iov_len[0] = 17
+  out_buffer.iov_base[0] = 33214 = 'RPY 0 0 . 0 186
+'
+  out_buffer.iov_len[1] = 186
+  out_buffer.iov_base[1] = 33A0C = 'content-type: application/xml+beep
+
+<greeting features='features' localize='localize'>
+  <profile uri='http://first/profile'/>
+  <profile uri='http://second/profile'/>
+</greeting>
+'
+  out_buffer.iov_len[2] = 5
+  out_buffer.iov_base[2] = 20F90 = 'END
+'
+  status=0. status_channel=-1. status_text=>>NULL<<
+  memory_limit=-1, memory_used=187
+  frame_pre=0, frame_post=0
+  IL=L
+  server_name='>>NULL<<'
+  Offered profiles: NULL
+  Greeting error: 0
+  Features: >>NULL<<
+  Localize: >>NULL<<
+  Session info: 0
+  SEQ buffer: ''
+  HEAD buffer: 'RPY 0 0 . 0 186
+'
+  READ buffer: ''
+  READ SEQ: 0
+  READ FRAME:
+      NULL FRAME POINTER
+  Channels:
+    CHANNEL at 332C8:
+    next 0
+    chan_number=0
+    channel_info=0
+    priority=100
+    in_frame:
+      NULL FRAME POINTER
+    out_frame:
+      NULL FRAME POINTER
+    commit_frame:
+      FRAME at 339E0 (session=330C0):
+      Next on channel: 0
+      Next in message: 0
+      msg_type='R' more='.'
+      channel_number=0
+      message_number=0
+      answer_number =-1
+      size=0, alloc=187
+      payload=>>><<<
+    apparent out window: 4096
+    cur_out_msg type='R', number=0
+    cur_in_seq=0
+    max_in_seq=4096
+    cur_in_buf=0
+    max_in_buf=10241
+    cur_out_seq=186
+    max_out_seq=4096
+    SENT messages: 
+      Sent 0 msg_more='.' rpy_more=' '
+    RCVD messages: NONE
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+
+AFTER 208 OCTETS:
+Start of dump, session at 330C0
+  in_buffer.vec_count=1
+  in_buffer.iov_len[0] = 78
+  in_buffer.iov_base[0] = 33264 = ''
+  out_buffer.vec_count=1
+  out_buffer.iov_len[0] = 15
+  out_buffer.iov_base[0] = 331C4 = 'SEQ 0 0 10241
+'
+  status=0. status_channel=-1. status_text=>>NULL<<
+  memory_limit=-1, memory_used=0
+  frame_pre=0, frame_post=0
+  IL=L
+  server_name='>>NULL<<'
+  Offered profiles: NULL
+  Greeting error: 0
+  Features: >>NULL<<
+  Localize: >>NULL<<
+  Session info: 0
+  SEQ buffer: 'SEQ 0 0 10241
+'
+  HEAD buffer: ''
+  READ buffer: ''
+  READ SEQ: 0
+  READ FRAME:
+      NULL FRAME POINTER
+  Channels:
+    CHANNEL at 332C8:
+    next 0
+    chan_number=0
+    channel_info=0
+    priority=100
+    in_frame:
+      NULL FRAME POINTER
+    out_frame:
+      NULL FRAME POINTER
+    commit_frame:
+      NULL FRAME POINTER
+    apparent out window: 4096
+    cur_out_msg type=' ', number=-1
+    cur_in_seq=0
+    max_in_seq=10241
+    cur_in_buf=0
+    max_in_buf=10241
+    cur_out_seq=186
+    max_out_seq=4096
+    SENT messages: 
+      Sent 0 msg_more='.' rpy_more=' '
+    RCVD messages: NONE
+
+AFTER 223 OCTETS:
+Start of dump, session at 330C0
+  in_buffer.vec_count=1
+  in_buffer.iov_len[0] = 78
+  in_buffer.iov_base[0] = 33264 = ''
+  out_buffer.vec_count=0
+  status=0. status_channel=-1. status_text=>>NULL<<
+  memory_limit=-1, memory_used=0
+  frame_pre=0, frame_post=0
+  IL=L
+  server_name='>>NULL<<'
+  Offered profiles: NULL
+  Greeting error: 0
+  Features: >>NULL<<
+  Localize: >>NULL<<
+  Session info: 0
+  SEQ buffer: ''
+  HEAD buffer: ''
+  READ buffer: ''
+  READ SEQ: 0
+  READ FRAME:
+      NULL FRAME POINTER
+  Channels:
+    CHANNEL at 332C8:
+    next 0
+    chan_number=0
+    channel_info=0
+    priority=100
+    in_frame:
+      NULL FRAME POINTER
+    out_frame:
+      NULL FRAME POINTER
+    commit_frame:
+      NULL FRAME POINTER
+    apparent out window: 4096
+    cur_out_msg type=' ', number=-1
+    cur_in_seq=0
+    max_in_seq=10241
+    cur_in_buf=0
+    max_in_buf=10241
+    cur_out_seq=186
+    max_out_seq=4096
+    SENT messages: 
+      Sent 0 msg_more='.' rpy_more=' '
+    RCVD messages: NONE
+GREETING CLEANED OUT - START SHORTFRAME TEST
+Notify upper: 0, 1
+Notify upper: 0, 2
+
+AFTER 64 BYTES:
+Start of dump, session at 330C0
+  in_buffer.vec_count=1
+  in_buffer.iov_len[0] = 78
+  in_buffer.iov_base[0] = 33264 = ''
+  out_buffer.vec_count=0
+  status=0. status_channel=-1. status_text=>>NULL<<
+  memory_limit=-1, memory_used=0
+  frame_pre=0, frame_post=0
+  IL=L
+  server_name='>>NULL<<'
+  Offered profiles: NULL
+  Greeting error: 0
+  Features: >>NULL<<
+  Localize: >>NULL<<
+  Session info: 0
+  SEQ buffer: ''
+  HEAD buffer: ''
+  READ buffer: ''
+  READ SEQ: 0
+  READ FRAME:
+      NULL FRAME POINTER
+  Channels:
+    CHANNEL at 332C8:
+    next 0
+    chan_number=0
+    channel_info=0
+    priority=100
+    in_frame:
+      FRAME at 339E0 (session=330C0):
+      Next on channel: 0
+      Next in message: 0
+      msg_type='M' more='.'
+      channel_number=0
+      message_number=9
+      answer_number =-1
+      size=11, alloc=-11
+      payload=>>><greeting/><<<
+      NULL FRAME POINTER
+    out_frame:
+      NULL FRAME POINTER
+    commit_frame:
+      NULL FRAME POINTER
+    apparent out window: 4096
+    cur_out_msg type=' ', number=-1
+    cur_in_seq=11
+    max_in_seq=10241
+    cur_in_buf=11
+    max_in_buf=10241
+    cur_out_seq=186
+    max_out_seq=6100
+    SENT messages: 
+      Sent 0 msg_more='.' rpy_more=' '
+    RCVD messages: 
+      Rcvd 9 msg_more='.' rpy_more=' '
+START EMPTY FRAME TEST
+Notify upper: 0, 1
+Notify upper: 0, 2
+
+AFTER 54 BYTES:
+Start of dump, session at 330C0
+  in_buffer.vec_count=1
+  in_buffer.iov_len[0] = 78
+  in_buffer.iov_base[0] = 33264 = ''
+  out_buffer.vec_count=0
+  status=0. status_channel=-1. status_text=>>NULL<<
+  memory_limit=-1, memory_used=0
+  frame_pre=0, frame_post=0
+  IL=L
+  server_name='>>NULL<<'
+  Offered profiles: NULL
+  Greeting error: 0
+  Features: >>NULL<<
+  Localize: >>NULL<<
+  Session info: 0
+  SEQ buffer: ''
+  HEAD buffer: ''
+  READ buffer: ''
+  READ SEQ: 11
+  READ FRAME:
+      NULL FRAME POINTER
+  Channels:
+    CHANNEL at 332C8:
+    next 0
+    chan_number=0
+    channel_info=0
+    priority=100
+    in_frame:
+      FRAME at 339E0 (session=330C0):
+      Next on channel: 33330
+      Next in message: 0
+      msg_type='M' more='.'
+      channel_number=0
+      message_number=9
+      answer_number =-1
+      size=11, alloc=-11
+      payload=>>><greeting/><<<
+      FRAME at 33330 (session=330C0):
+      Next on channel: 0
+      Next in message: 0
+      msg_type='M' more='.'
+      channel_number=0
+      message_number=10
+      answer_number =-1
+      size=0, alloc=0
+      payload=>>><<<
+      NULL FRAME POINTER
+    out_frame:
+      NULL FRAME POINTER
+    commit_frame:
+      NULL FRAME POINTER
+    apparent out window: 4096
+    cur_out_msg type=' ', number=-1
+    cur_in_seq=11
+    max_in_seq=10241
+    cur_in_buf=11
+    max_in_buf=10241
+    cur_out_seq=186
+    max_out_seq=8100
+    SENT messages: 
+      Sent 0 msg_more='.' rpy_more=' '
+    RCVD messages: 
+      Rcvd 9 msg_more='.' rpy_more=' '
+      Rcvd 10 msg_more='.' rpy_more=' '
+ALL DONE!

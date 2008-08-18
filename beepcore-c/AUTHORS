@@ -1,0 +1,37 @@
+/* 
+    $Id: AUTHORS,v 1.1 2002/03/18 20:27:02 sweetums Exp $
+*/
+
+As with many opensource projects, there are quite a few people
+involved in beepcore-c.  You'll also find them on the Sourceforge
+developers list.
+
+
+-   Core protocol handling functions.		dnew
+-   Thread management routines.			mtr2
+-   I/O and conneciton management		mtr2
+-   Wrapper					sweetums, mtr2, huston
+-   C++ port and Win32 port			spead, huston
+-   libtool and autoconf			brucem
+-   misc utilities				sweetums
+-   example programs				sweetums, mtr2, mrose
+
+-   Major code reorg and naming consistency.	huston, mrose, edixon
+
+
+
+Developers may provide contact info beyond the Sourceforge provided
+e-mail if they wish.
+
+SourceforgeID	Name			Email/Contact info
+-------------	---------------------	-------------------------
+brucem          Bruce Mitchener		brucem at users.sourceforge.net
+dnew		Darren New		dnew at users.sourceforge.net
+edixon          Eric Dixon		edixon at users.sourceforge.net
+huston		Huston Franklin		huston at users.sourceforge.net
+jkint           Jay Kint		jkint at users.sourceforge.net
+mrose		Marshall T. Rose	mrose at users.sourceforge.net
+mtr2		Mark T. Richardson	mtr2@pacbell.net
+spead		Scott Pead		spead at users.sourceforge.net
+sweetums	Bill Mills		wmills@olagrande.net
+

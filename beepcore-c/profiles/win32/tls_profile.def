@@ -1,0 +1,5 @@
+LIBRARY   TLS_PROFILE
+DESCRIPTION "TLS profile implementation"
+EXPORTS
+   tls_profile_Init
+   tls_privatize

@@ -1,0 +1,97 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/profiles/unix/Makefile.in,v 1.9 2002/01/04 07:07:03 mrose Exp $
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+MF_CFLAGS=	$(SSL_INCLUDES) $(CYRUS_INCLUDES)
+
+include $(SRC_ROOT)/Make.defs
+#
+#
+
+VPATH = .:..:../SASLutils:../../wrapper:../../utility:../../core/generic:../../transport:
+
+SASL_OBJS = 	sasl-profiles.lo \
+		do_hash.lo       \
+		md5.lo           \
+		otp_db.lo        \
+		sasl_general.lo
+
+OBJS =  null-profiles.lo \
+	syslog-raw.lo    \
+        tls-profile.lo   \
+        $(CYRUS_SOBJ)    \
+	$(SASL_OBJS)
+
+all: shared-libs
+
+clean:
+	rm -rf *.o *.so *.la *.lo .libs
+
+install: $(LIB_INSTALL_DIR)
+	$(INSTALLLIB) libnull-profiles.la $(LIB_INSTALL_DIR)/.
+	$(INSTALLLIB) libsyslog-raw.la    $(LIB_INSTALL_DIR)/.
+	$(CYRUS_NONE) $(CYRUS_SLIB)       $(LIB_INSTALL_DIR)/.
+	$(INSTALLLIB) libtls-profile.la   $(LIB_INSTALL_DIR)/.
+	$(INSTALLLIB) libsasl-profiles.la $(LIB_INSTALL_DIR)/.
+	$(INSTALLFINISH) $(LIB_INSTALL_DIR)/.
+
+$(LIB_INSTALL_DIR):
+	$(INSTALLDIR) $@
+
+
+shared-libs: 	libnull-profiles.la \
+		libsyslog-raw.la    \
+		$(CYRUS_SLIB)       \
+		libtls-profile.la   \
+		libsasl-profiles.la
+
+libnull-profiles.la: null-profiles.lo
+	$(LDLIBTOOL) $(CC) $< -o $@ $(LIBTOOL_LDFLAGS)
+
+libsyslog-raw.la: syslog-raw.lo
+	$(LDLIBTOOL) $(CC) $< -o $@ $(LIBTOOL_LDFLAGS)
+
+libcyrus-profiles.la: cyrus-profiles.lo
+	$(LDLIBTOOL) $(CC) $< -o $@ $(LIBTOOL_LDFLAGS) $(CYRUS_LIBS)
+
+libtls-profile.la: tls-profile.lo
+	$(LDLIBTOOL) $(CC) $< -o $@ $(LIBTOOL_LDFLAGS)
+
+libsasl-profiles.la: $(SASL_OBJS)
+	$(LDLIBTOOL) $(CC) $(SASL_OBJS) -o $@ $(LIBTOOL_LDFLAGS)
+
+blw_malloc_test: blw_malloc_test.lo $(OBJS)
+	$(CCLIBTOOL) $(CC) blw_malloc_test.o $(OBJS) $(SYSLIBS) $(BEEPLIBS) -o blw_malloc_test
+
+
+.DEFAULT:
+
+###############################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets

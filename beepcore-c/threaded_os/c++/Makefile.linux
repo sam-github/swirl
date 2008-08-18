@@ -1,0 +1,209 @@
+# Simple Makefile for C BEEPLib
+#
+.SUFFIXES: .cpp .c .o
+
+# Text Things
+NAME = Makefile for C++ BEEP Library
+VERSION = 0.0
+
+# Commands
+CLEAR = clear
+COMPILE_C = gcc
+COMPILE_C++ = g++
+DELETE	= rm -rf
+LINK=ld
+LINKER_FLAGS=-r
+LIB = ar
+CHMOD = chmod
+DUP = ln -s 
+MKDIR = mkdir -p
+
+# Flags
+DEFAULT_FLAGS=-DSTP -DPTHREAD -DLINUX
+DEBUGFLAGS=$(DEFAULT_FLAGS) -DDEBUG -g
+L = -L /usr/lib -L -L../../profiles/unix -L../../utility/unix -L../../core/unix -L../wrapper/unix -L ../transport/unix -L ../utility/unix -L ./ -lpthread -lrt -lnsl -lc -lbptoswrapper -lbptostransport -lbptosutil -lbputil -lbeepxmlutil -lxmlglobal -lbeepcore
+
+ifdef LD_LIBRARY_PATH
+LINK_FLAGS=-L$(subst :, -L,$(LD_LIBRARY_PATH)) $(L)
+else
+LINK_FLAGS= $(L)
+endif
+CPPLINK_FLAGS=-L ./lib -lbeepcpp 
+PRODFLAGS=$(DEFAULT_FLAGS) -w -O
+FLAGS = $(DEBUGFLAGS)
+LIB_FLAGS = rc
+EXEC = u+x
+
+# Directories
+OBJDIR =	obj/
+LIBDIR =	lib/
+DEPDIR =	dep/
+
+# Objects for the BEEPCORE-C++ Wrapper 
+LIBOBJS =	BEEPException.o BEEPError.o \
+		CallbackEngine.o CallbackEvent.o \
+		Channel.o Common.o Configuration.o \
+		CloseChannelException.o DataTransmissionException.o \
+		Data.o DataListener.o Frame.o \
+		Message.o MessageQueue.o \
+		Peer.o PeerConfiguration.o ProcessListener.o \
+		Profile.o ProfileListener.o SimpleProfile.o \
+		ProfileRegistration.o ProfileRegistry.o \
+		Session.o SessionContext.o SessionListener.o\
+		SessionTransport.o TuningResetListener.o \
+		StartChannelException.o TuningResetException.o 
+
+# Utility classes used by the BEEPCORE-C++ Wrapper 
+UTILOBJS	= Condition.o Mutex.o PropertyMap.o Thread.o ThreadID.o
+
+# Classes used for testing
+TESTOBJS	= Test.o
+
+# Classes used for sample code
+SAMPLEOBJS	= EchoProfile.o
+
+# Executable classes
+EXEOBJS 	= Bing.o EchoServer.o
+
+# TEst classes
+TESTOBJS	= Test.o
+
+# Build all the code
+CPPOBJS 	= $(LIBOBJS) $(UTILOBJS) $(SAMPLEOBJS)
+
+# Include and VPATH
+INCLUDE =	-I./core  -I./sample \
+		-I./test -I./utility -I../../utility \
+		-I../../core/generic -I../wrapper -I../transport \
+		-I../utility -I../../profiles -I../examples
+vpath % ./core
+vpath % ./sample
+vpath % ./test
+vpath % ./utility
+
+# Target Specifiations
+TARGET_LIBS = libbeepcpp.a libbeepcpp.so.$(VERSION)
+
+TARGET_I = Bing
+TARGET_L = EchoServer
+TARGET_T = Unittests
+TARGET_SUFFIX = 
+
+# add the output directory
+CPPOBJS := $(addprefix $(OBJDIR),$(CPPOBJS))
+EXEOBJS := $(addprefix $(OBJDIR),$(EXEOBJS))
+TESTOBJS := $(addprefix $(OBJDIR),$(TESTOBJS))
+TARGET_LIBS := $(addprefix $(LIBDIR),$(TARGET_LIBS))
+
+# Suffix rules
+$(DEPDIR)%.d : %.cpp
+	set -e; $(MKDIR) $(DEPDIR); $(COMPILE_C) -MM $(FLAGS) $(PLATFORM_FLAGS) $(INCLUDE) $< \
+    | sed 's/\($*\)\.o[ :]*/$(subst /,\/,$(OBJDIR))\1.o $(subst /,\/,$@) : /g' > $@; \
+    [ -s $@ ] || rm -f $@
+
+$(OBJDIR)%.o : %.cpp
+		@echo Compiling $(basename $@) from $(PWD) 
+		$(COMPILE_C++) $(FLAGS) $(PLATFORM_FLAGS) $(INCLUDE) -c $< -o $@
+
+$(DEPDIR)%.d : %.c
+	set -e; $(MKDIR) $(DEPDIR); $(COMPILE_C) -MM $(FLAGS) $(PLATFORM_FLAGS) $(INCLUDE) $< \
+    | sed 's/\($*\)\.o[ :]*/$(subst /,\/,$(OBJDIR))\1.o $(subst /,\/,$@) : /g' > $@; \
+    [ -s $@ ] || rm -f $@
+
+$(OBJDIR)%.o : %.c
+		@echo Compiling $(basename $@) from $(PWD) 
+		$(COMPILE_C) $(FLAGS) $(PLATFORM_FLAGS) $(INCLUDE) -c $< -o $@
+
+$(LIBDIR)%.a :
+		$(DELETE) $(LIBDIR)*.*
+		$(LIB) $(LIB_FLAGS) $@ $^
+
+$(LIBDIR)%.so.$(VERSION) :
+		$(DELETE) $(LIBDIR)*.*
+		$(LINK) $(LINKER_FLAGS) -o $@ $^
+		$(CHMOD) $(EXEC) $@
+		$(DUP) $(notdir $@) $(subst .$(VERSION),,$@)
+
+all:        	flag $(TARGET_LIBS) sample #test
+
+sample:		Bing Echoserver
+
+Bing:		$(OBJDIR)Bing.o 
+		@echo Building Bing
+		$(COMPILE_C++) $(FLAGS) $(LINK_FLAGS) $(LINK_FLAGS2) $(CPPLINK_FLAGS) $^ -o $(TARGET_I)$(TARGET_SUFFIX)
+
+Echoserver:	$(OBJDIR)EchoServer.o 
+		@echo Building EchoServer
+		$(COMPILE_C++) $(FLAGS) $(LINK_FLAGS) $(LINK_FLAGS2) $(CPPLINK_FLAGS) $^ -o $(TARGET_L)$(TARGET_SUFFIX)
+
+test:		$(TESTOBJS)
+		@echo Building Test Executable
+		$(COMPILE_C++) $(FLAGS) $(LINK_FLAGS) $(CPPLINK_FLAGS) $^ -o $(TARGET_T)$(TARGET_SUFFIX)
+		@echo Build complete
+# Targets
+$(LIBDIR)libbeepcpp.a: $(CPPOBJS)
+
+$(LIBDIR)libbeepcpp.so.$(VERSION): $(CPPOBJS)
+
+flag:
+		$(CLEAR)
+		@echo $(NAME) $(VERSION)
+		$(MKDIR) $(OBJDIR)
+		$(MKDIR) $(LIBDIR)
+		$(MKDIR) $(DEPDIR)
+
+# Set necessary variables if they're unspecified
+ifndef BUILDTYPE
+	@echo Defaulting to Debug Build
+	set BUILDTYPE=debug
+else
+# Set Flags appropriately based on type
+ifeq (production,$(BUILDTYPE))
+		@echo Build Type $(BUILDTYPE)
+		set FLAGS=$(PRODFLAGS)
+else
+		@echo Build Type $(BUILDTYPE)
+		set FLAGS=$(DEBUGFLAGS)
+endif
+endif
+
+# Change our Windows/Unix settings
+ifndef TERM
+# Windows Settings
+#@echo Using Windows Settings
+		CLEAR = cls
+		DELETE = del
+		PLATFORM_FLAGS=-DWIN32
+		TARGET_SUFFIX = .exe
+else
+# Unix Settings
+		set CLEAR = clear
+		set DELETE = rm
+# Platform specific Compiler Messages
+		set LINK_FLAGS=-lg++ libpthread
+		set PLATFORM_FLAGS=-DPTHREAD -pipe
+		set FLAGS=$(FLAGS) $(PLATFORM_FLAGS)
+endif
+
+# Clean rule
+clean:	flag
+		$(CLEAR)
+		@echo $(NAME) $(VERSION)
+		@echo Build Type Clean
+		@echo Removing Object Files
+		$(DELETE) $(OBJDIR)*.o
+		@echo Removing Binaries
+		$(DELETE) $(LIBDIR)*.a
+		$(DELETE) $(LIBDIR)*.so.*
+		$(DELETE) $(LIBDIR)*.so
+		$(DELETE) $(TARGET_I)$(TARGET_SUFFIX)
+		$(DELETE) $(TARGET_L)$(TARGET_SUFFIX)
+		$(DELETE) $(TARGET_T)$(TARGET_SUFFIX)
+		$(DELETE) *.log
+		@echo Removing Temporary File Stuff
+		$(DELETE) *~
+
+rebuild: clean all
+
+# Dependencies - get an autogenerator
+include $(addprefix $(DEPDIR),$(subst .o,.d,$(notdir $(CPPOBJS))))

@@ -1,0 +1,7 @@
+*.la
+*.lo
+*.o
+.libs
+hashtest
+unit_xml_entities
+

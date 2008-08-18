@@ -1,0 +1,60 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/utility/Makefile.in,v 1.2 2001/10/30 06:00:40 brucem Exp $
+#
+# Toplevel makefile for the source tree
+#
+# Please notice that all dependencies are resolved by ordering, so that you are not
+# allowed to screw around the order of targets!
+#
+# Exit if SRC_ROOT undefined
+#
+
+REL_TO_ROOT = /..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+
+# 1. Generic settings
+
+include $(SRC_ROOT)/Make.defs
+
+# 2. Target directories
+
+
+DIRS =  unix
+
+MOREDIRS = 
+
+#
+# Simple tree makefile targets
+#
+ifdef DIRS
+all: treeall
+clean: treeclean
+install: treeinstall
+endif
+
+#
+#
+#
+include $(SRC_ROOT)/Make.targets
+
+
+
+

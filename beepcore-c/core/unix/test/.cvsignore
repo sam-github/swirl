@@ -1,0 +1,10 @@
+*.la
+*.lo
+*.o
+.libs
+unit_base64
+unit_cbeep_io
+unit_cbeep_query
+unit_cbeep_shortframe
+unit_channel_0
+unit_frame_aggregate

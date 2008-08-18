@@ -1,0 +1,11 @@
+This C++ library has been tested against the C and Java BEEP libraries for compatibility.
+
+There are obviously places where code is meant to come (the Configuration classes for instance)
+to simplify things down the road.  This is a snapshot of an evolving codebase.
+
+Threading and ULIMIT - on Linux you will probably want to raise the ulimit.  Otherwise you will see the program die when PThreads encounters issues attempting to allocate threads.
+
+Logging Issues - I've found that hundreds of parallel Bing clients can drive the log entries through the roof and lead to a "File Size Limit Exceeded" in the log.  You can manage file limits as well to deal with this.
+
+It was built on Linux with GCC version 2.95.3 and the accompanying C++ standard library
+It was built on Solaris with GCC version 2.95.2 and the accompanying C++ standard library

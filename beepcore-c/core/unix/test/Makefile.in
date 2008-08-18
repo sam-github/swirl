@@ -1,0 +1,120 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+#
+# $Id: Makefile.in,v 1.2 2001/10/30 06:00:37 brucem Exp $
+#
+
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+include $(SRC_ROOT)/Make.defs
+#
+#
+#
+VPATH  =		../../generic:../../test:..:../../../utility/unix/
+
+#CFLAGS		=	-O -fPIC
+CCFLAGS		=	-g -fPIC
+
+INCLUDES	= 	-I ../ -I ../.. -I ../../generic
+
+BEEPUTILLIBS	=	../../../utility/unix/libxmlglobal.la \
+			../../../utility/unix/libbeepxmlutil.la \
+			../../../utility/unix/libbputil.la
+
+LIBS		= 	$(SYSLIBS)
+
+ifdef PURIFY
+    PURECMD = purify -cache-dir=/iw/home/wmills/purify/cache -best-effort  -forbidden-directories=/iw:/var/opt:/usr/lib:/usr/local/lib:/ccs/lib: 
+else
+    PURECMD = 
+endif
+
+CC		=	$(PURECMD) gcc -pipe -Wall $(INCLUDES)
+
+#CC		=	purify -cache-dir=/iw/puretcl/cache -best-effort gcc -pipe -Wall
+
+UNIT_TESTS      =       unit_base64 \
+			unit_cbeep_io \
+			unit_cbeep_query \
+			unit_cbeep_shortframe \
+			unit_channel_0 \
+			unit_frame_aggregate
+
+#			unit_cbeep_chan0_in \
+
+LDLIBTOOL	=	$(LIBTOOL) --mode=link
+
+
+all: $(UNIT_TESTS)
+
+clean:
+	@touch foo.o ; rm -rf *.o $(UNIT_TESTS) *.lo .libs
+
+install:
+	@echo Nothing to do  for install.
+
+unit_base64: unit_base64.lo ../libbeepcore.la
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_base64.lo \
+		../libbeepcore.la $(BEEPUTILLIBS)
+
+unit_channel_0: unit_channel_0.lo ../channel_0.lo
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_channel_0.lo \
+		../channel_0.lo ../CBEEP.lo ../base64.lo \
+		../cbxml_entities.lo $(BEEPUTILLIBS)
+
+unit_frame_aggregate: unit_frame_aggregate.lo ../channel_0.lo 
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_frame_aggregate.lo \
+		../channel_0.lo  ../CBEEP.lo ../base64.lo \
+		../cbxml_entities.lo $(BEEPUTILLIBS)
+
+unit_cbxml_entities: unit_cbxml_entities.lo 
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_cbxml_entities.lo \
+		cbxml_entities.lo $(BEEPUTILLIBS)
+
+
+UNIT_CBEEP_DEPS =   	../libbeepcore.la
+
+#UNIT_CBEEP_DEPS =   	../libbeepcore.la \
+#			$(BEEPUTILLIBS)
+
+unit_cbeep_chan0_in: unit_cbeep_chan0_in.lo  $(UNIT_CBEEP_DEPS) unit_notify_stubs.lo 
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_cbeep_chan0_in.lo $(UNIT_CBEEP_DEPS) unit_notify_stubs.lo 
+
+unit_cbeep_io: unit_cbeep_io.lo $(UNIT_CBEEP_DEPS)
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_cbeep_io.lo $(UNIT_CBEEP_DEPS) $(BEEPUTILLIBS)
+
+unit_cbeep_query: unit_cbeep_query.lo $(UNIT_CBEEP_DEPS)
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_cbeep_query.lo $(UNIT_CBEEP_DEPS) $(BEEPUTILLIBS)
+
+unit_cbeep_shortframe: unit_cbeep_shortframe.lo $(UNIT_CBEEP_DEPS)
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) $(LIBS) -o $@ unit_cbeep_shortframe.lo $(UNIT_CBEEP_DEPS) $(BEEPUTILLIBS)
+
+
+################################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets

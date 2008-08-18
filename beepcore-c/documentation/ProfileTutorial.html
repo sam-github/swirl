@@ -1,0 +1,959 @@
+<html><head><title>How to Write Profiles for the BEEPCORE-C Library</title>
+<meta http-equiv="Expires" content="Wed, 16 Jan 2002 21:30:41 +0000">
+<STYLE type='text/css'>
+    .title { color: #990000; font-size: 22px; line-height: 22px; font-weight: bold; text-align: right;
+             font-family: helvetica, arial, sans-serif }
+    .filename { color: #666666; font-size: 18px; line-height: 28px; font-weight: bold; text-align: right;
+                  font-family: helvetica, arial, sans-serif }
+    p.copyright { color: #000000; font-size: 10px;
+                  font-family: verdana, charcoal, helvetica, arial, sans-serif }
+    p { margin-left: 2em; margin-right: 2em; }
+    li { margin-left: 3em;  }
+    ol { margin-left: 2em; margin-right: 2em; }
+    ul.text { margin-left: 2em; margin-right: 2em; }
+    pre { margin-left: 3em; color: #333333 }
+    ul.toc { color: #000000; line-height: 16px;
+             font-family: verdana, charcoal, helvetica, arial, sans-serif }
+    H3 { color: #333333; font-size: 16px; line-height: 16px; font-family: helvetica, arial, sans-serif }
+    H4 { color: #000000; font-size: 14px; font-family: helvetica, arial, sans-serif }
+    TD.header { color: #ffffff; font-size: 10px; font-family: arial, helvetica, san-serif; valign: top }
+    TD.author-text { color: #000000; font-size: 10px;
+                     font-family: verdana, charcoal, helvetica, arial, sans-serif }
+    TD.author { color: #000000; font-weight: bold; margin-left: 4em; font-size: 10px; font-family: verdana, charcoal, helvetica, arial, sans-serif }
+    A:link { color: #990000; font-size: 10px; text-transform: uppercase; font-weight: bold;
+             font-family: MS Sans Serif, verdana, charcoal, helvetica, arial, sans-serif }
+    A:visited { color: #333333; font-weight: bold; font-size: 10px; text-transform: uppercase;
+                font-family: MS Sans Serif, verdana, charcoal, helvetica, arial, sans-serif }
+    A:name { color: #333333; font-weight: bold; font-size: 10px; text-transform: uppercase;
+             font-family: MS Sans Serif, verdana, charcoal, helvetica, arial, sans-serif }
+    .link2 { color:#ffffff; font-weight: bold; text-decoration: none;
+             font-family: monaco, charcoal, geneva, MS Sans Serif, helvetica, monotype, verdana, sans-serif;
+             font-size: 9px }
+    .RFC { color:#666666; font-weight: bold; text-decoration: none;
+           font-family: monaco, charcoal, geneva, MS Sans Serif, helvetica, monotype, verdana, sans-serif;
+           font-size: 9px }
+    .hotText { color:#ffffff; font-weight: normal; text-decoration: none;
+               font-family: charcoal, monaco, geneva, MS Sans Serif, helvetica, monotype, verdana, sans-serif;
+               font-size: 9px }
+</style>
+</head>
+<body bgcolor="#ffffff" text="#000000" alink="#000000" vlink="#666666" link="#990000">
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<table width="66%" border="0" cellpadding="0" cellspacing="0"><tr><td><table width="100%" border="0" cellpadding="2" cellspacing="1">
+<tr valign="top"><td width="33%" bgcolor="#666666" class="header"> </td><td width="33%" bgcolor="#666666" class="header">D. New</td></tr>
+<tr valign="top"><td width="33%" bgcolor="#666666" class="header">&nbsp;</td><td width="33%" bgcolor="#666666" class="header">November 2001</td></tr>
+</table></td></tr></table>
+<div align="right"><font face="monaco, MS Sans Serif" color="#990000" size="+3"><b><br><span class="title">How to Write Profiles for the BEEPCORE-C Library</span></b></font></div>
+<font face="verdana, helvetica, arial, sans-serif" size="2">
+<a name="toc"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>Table of Contents</h3>
+<ul compact class="toc">
+<b><a href="#anchor1">1.</a>&nbsp;
+Introduction<br></b>
+<b><a href="#anchor2">2.</a>&nbsp;
+Concepts<br></b>
+<b><a href="#anchor3">3.</a>&nbsp;
+Creating a Simple Profile<br></b>
+<b><a href="#anchor4">3.1</a>&nbsp;
+Registering Profiles<br></b>
+<b><a href="#anchor5">3.2</a>&nbsp;
+Accepting Requests<br></b>
+<b><a href="#anchor6">3.3</a>&nbsp;
+Generating Requests<br></b>
+<b><a href="#anchor7">3.4</a>&nbsp;
+Who Gets to Start a Channel?<br></b>
+<b><a href="#anchor8">4.</a>&nbsp;
+Advanced Topics<br></b>
+<b><a href="#anchor9">4.1</a>&nbsp;
+Starting Other Profiles<br></b>
+<b><a href="#anchor10">4.2</a>&nbsp;
+Window Overruns<br></b>
+<b><a href="#anchor11">4.3</a>&nbsp;
+Tuning Resets<br></b>
+<b><a href="#anchor12">4.4</a>&nbsp;
+Multiple Sessions<br></b>
+<b><a href="#anchor13">5.</a>&nbsp;
+Sample Code and Execution<br></b>
+<b><a href="#anchor14">5.1</a>&nbsp;
+For Those Reading Source Code<br></b>
+<b><a href="#rfc.authors">&#167;</a>&nbsp;
+Author's Address<br></b>
+<b><a href="#anchor15">A.</a>&nbsp;
+Copyright and License<br></b>
+</ul>
+<br clear="all">
+
+<a name="anchor1"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>1.&nbsp;Introduction</h3>
+
+<p>
+ This document gives a brief tutorial on implementing profiles
+appropriately. It assumes the reader has a fair familiarity with BEEP as
+defined in RFC3080. 
+</p>
+
+<p>
+ The CBEEP library and its supporting code is simple to use for simple
+applications, yet it is capable of surprisingly complex applications. The
+system consists of four levels of code: 
+</p>
+
+<blockquote class="text"><dl>
+
+<dt>Core:</dt>
+<dd>
+The "core" library is embodied in CBEEP.c and its
+supporting files. The "core" refers to the part of the code directly
+responsible for implementing RFC3080 and RFC3081 syntax and semantics. It is
+portable. It includes no I/O or memory management, which allows it to be used
+in a wide variety of applications and environments. However, it lacks a number
+of features one might expect to find in every BEEP application, such as a
+mapping of URIs onto different profile implementations. 
+</dd>
+
+<dt>Wrapper:</dt>
+<dd>
+The "wrapper" library wraps around the core library
+and provides services such as I/O, synchronization, thread creation and
+termination, and dispatch of messages to separate independent implementations,
+based on the profile's URI. 
+</dd>
+
+<dt>Profile Implementation:</dt>
+<dd>
+Each "profile implementation"
+implements one or more profiles as defined by their URIs and the RFCs
+describing their operation. Each profile implementation is responsible for
+reacting to events sent to it in the form of messages, replies, initialization
+and finalization from the wrapper, and so on. 
+</dd>
+
+<dt>Application:</dt>
+<dd>
+Each "application" invokes at least one wrapper.
+The application is responsible for finding all the profile implementations of
+interest, opening the underlying TCP socket, creating a wrapper, and otherwise
+dealing with inter-profile communication, inter-wrapper communication, and
+configuration. 
+</dd>
+
+</dl></blockquote>
+<p>
+
+<p>
+ The library comes with an application that reads a simple configuration
+file and starts either a listening server or an initiating client. This
+application can be replaced for more sophisticated applications that may have
+connections to multiple peers at the same time, for example. 
+</p>
+
+<p>
+ This tutorial describes how to create profile implementations and
+applications that take advantage of the wrapper that comes with the library.
+
+</p>
+
+<a name="anchor2"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>2.&nbsp;Concepts</h3>
+
+<p>
+ There are a number of concepts that are used throughout this document.
+Understanding these concepts is vital to understanding the document and the
+libraries. 
+Although the RFCs include many of these concepts,
+the libraries have implementation-specific meanings for them.
+These concepts are described herein. 
+</p>
+
+<blockquote class="text"><dl>
+
+<dt>Frame vs. Message</dt>
+<dd>
+ - The first distinction is between a frame and
+a message. While both are clearly defined in the RFCs, the libraries deal only
+with frames. A frame that happens to hold both the beginning of a message and
+the end of a message is a complete message as well as a complete frame. Many
+places in the API accept a "frame," such as the routine to send a frame over a
+channel. It should be understood that if one wants to send a complete message,
+the complete message is put into a frame and one sends the frame. There are
+also API calls to determine if enough frames have arrived to form a complete
+message and to accept a series of frames and turn them into a single complete
+frame. 
+</dd>
+
+<dt>Session vs. Wrapper Instance</dt>
+<dd>
+ - The RFCs are mildly confusing
+about what constitutes a session. In some places, a session is described as
+being established with a greeting. In other places, the description implies
+there is one session per transport connection. These two different
+interpretations come into conflict when a tuning reset is performed, which
+issues a new greeting over the same transport connection. For the purposes of
+this document, a new session starts just before a greeting is issued, and that
+session persists until channel zero is closed. Channel zero is closed when either the underlying transport connection is closed or before a non-BEEP negotiation (such as a TLS negotiation) starts,
+before another greeting is sent. The session can also be terminated without closing
+the underlying socket by a tuning reset understood by both peers but which does
+not result in a new BEEP greeting. (For example, a tuning reset after which
+some different protocol is used over the socket would fall into this category.)
+On the other hand, one wrapper instance corresponds to multiple BEEP sessions.
+A wrapper instance is finished when the last BEEP-formatted message has been
+exchanged. This occurs when a session is closed, a socket error occurs, a
+protocol error occurs, or a tuning reset explicitly destroys the wrapper
+without closing the socket (which is an example of the different-protocol
+tuning reset described previously). 
+</dd>
+
+<dt>Tuning Profile</dt>
+<dd>
+ - The RFCs describe a tuning profile as one which
+configures something about the entire session and then either goes idle or
+initiates a tuning reset. In this document, and for purposes of the library, a
+tuning profile is one that initiates a tuning reset. There is no practical
+reason to distinguish a profile which runs briefly then idles from one which
+continues to run. In the sense used in this document, a tuning profile 
+monopolizes the connection, preventing other profiles from exchanging
+data while it runs. 
+</dd>
+
+<dt>Frame-mode vs. Message-mode</dt>
+<dd>
+ - A profile implementation has two
+ways in which it can deal with incoming messages. It has the choice of dealing
+with frames as they arrive, or waiting until the remote peer has finished
+sending an entire message. This is entirely a matter of implementation choice,
+not a matter of protocol. By dealing with individual frames rather than waiting
+for entire messages, one can handle arbitrarily large messages and one might
+achieve a greater throughput via pipelining of I/O and processing. By dealing
+only with complete messages, one might achieve a significant simplification in
+message parsing and management. 
+</dd>
+
+<dt>Mode</dt>
+<dd>
+ - Each wrapper instance associates a "mode" with each
+session. This mode is represented as an arbitrary string. It is simply a
+selection mechanism for deciding which of the configured profile
+implementations will be initialized and/or advertised in the greeting of that
+particular session. The initial mode is specified when the wrapper instance is
+created. A profile instance that initiates a tuning reset can specify the mode
+of the new session after the tuning reset completes and before the new greeting
+(if any) is sent. 
+</dd>
+
+<dt>Initiator vs. Listener Wrapper Instances</dt>
+<dd>
+ - In the RFCs, the
+initiating session is the one that issues an active open on the underlying
+transport connection, while the listening session is the one that issues the
+passive open. In socket terms, the initiator calls "connect" while the listener
+calls "accept." Since initializing a wrapper involves passing in an
+already-connected socket, one must also pass in whether this is a listener or
+initiator wrapper. The application is responsible for opening the socket, so
+the wrapper itself cannot deduce this. Indeed, it might be different for two
+different sockets (and thus wrapper instances) within the same application. At
+the protocol level, the only real difference is the set of channel numbers that
+may appear within the &lt;start&gt; element. 
+</dd>
+
+<dt>Initiator vs. Listener Profile Implementations</dt>
+<dd>
+ - On the other
+hand, the "initiator" and "listener" terms also apply to profile
+implementations. In this case, a "listener" profile is one whose URI is
+advertised in the greeting. An "initiator" profile is one that is initialized
+but is not advertised in the greeting. Either type of profile may accept
+&lt;start&gt; requests, and either type may initiate &lt;start&gt; requests.
+However, since a profile must be initialized before a channel can be started
+for that profile, a profile listed in a &lt;start&gt; request must be either an
+initiator or listener profile for the current mode. 
+</dd>
+
+<dt>Profile Registration</dt>
+<dd>
+ - In the RFCs, a profile registration is a
+mechanism for reserving and advertising profiles via the IANA. In the context
+of the wrappers, a profile registration is a structure listing the URI and
+entry points (along with a few other items), informing the wrapper of which
+functions to invoke upon the occurrence of certain events. 
+</dd>
+
+</dl></blockquote>
+<p>
+
+<a name="anchor3"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>3.&nbsp;Creating a Simple Profile</h3>
+
+<p>
+ Creating a "simple" profile is straightforward. A simple profile is one
+that runs over a single channel, independent of other channels or sessions, and
+which is not a tuning profile. For example, a profile that echoes back any
+messages received would be a simple profile. A profile that performs a database
+search and returns the results would be a simple profile. A simple profile
+might both initiate requests and respond to requests. 
+</p>
+
+<p>
+ In contrast, TLS is a more complex profile, since it manages tuning resets.
+A profile that shares information
+amongst several sessions (such as a multi-user game server profile) would be
+complex. A profile that starts other profiles or establishes other BEEP
+connections would be considered complex. However, all these cases are possible
+to handle easily once the basics of simple profiles are understood. 
+</p>
+
+<p>
+ Each simple profile implementation has a listening portion and an
+initiating portion. The lines may be a bit blurry. For example, a database
+server may spontaneously inform a client that an earlier search result has been
+invalidated by the arrival of new data at the server. Generally, however, there
+will be a part of the profile designed to accept requests, and another part
+designed to generate requests. But first we need to discuss registration. 
+</p>
+
+<h4><a name="anchor4">3.1</a>&nbsp;Registering Profiles</h4>
+
+<p>
+ Registering a profile consists primarily of creating a profile registration
+structure and making it available to the application in the way the application
+expects. For example, in dynamically loaded profile instances, the wrapper will
+define a function call it will invoke after loading a library. This function
+will be expected to return a linked list of all the profile registration
+structures for all profiles implemented in that library.
+</p>
+
+<p>
+ Each registration structure has the following elements: 
+</p>
+
+<blockquote class="text"><dl>
+
+<dt>uri:</dt>
+<dd>
+The URI of the profile being implemented. This can be
+registered with IANA for standardized profiles. Note that each wrapper allows
+only one registration for each URI; that is, one cannot register multiple
+registrations with the same value for the URI. 
+</dd>
+
+<dt>next:</dt>
+<dd>
+The next registration in the list of registrations. Used
+for when a single implementation implements multiple profiles. 
+</dd>
+
+<dt>initiator_modes:</dt>
+<dd>
+A string (char *) of comma-separated values. Each
+value names one "mode" in which this profile will be initialized, but in which
+this profile's URI will not be advertised in the greeting. 
+</dd>
+
+<dt>listener_modes:</dt>
+<dd>
+A string (char *) of comma-separated values. Each
+value names one "mode" in which this profile will be initialized and in which
+this profile's URI will be advertised in the greeting. 
+</dd>
+
+<dt>full_messages:</dt>
+<dd>
+An integer that serves as a boolean value. If
+true, the profile is only informed of frame arrival when a complete message has
+arrived. That is, the profile will not be informed of frames with the more flag
+in the header having "*" as a value. 
+</dd>
+
+<dt>thread_per_channel:</dt>
+<dd>
+An integer that serves as a boolean value. If true, the profile has a thread dedicated to it for as long as the channel is open. If false, the profile gets a thread from the threadpool for the duration of the execution of one <b>pro_</b> function. 
+</dd>
+
+<dt>user_ptr:</dt>
+<dd>
+A void_t that you can use for whatever you want.
+</dd>
+
+<dt>Function pointers:</dt>
+<dd>
+A table of pointers to functions.
+There is one pointer for each function whose name starts with <b>pro_</b>. These are
+the functions invoked by the wrapper. 
+</dd>
+
+</dl></blockquote>
+<p>
+
+<p>
+ When the wrapper wishes to invoke one of the functions, it always passes in
+either a pointer to the profile registration structure or a pointer to the
+profile instance, depending on the function. Functions called when no profile
+instances exist get only a pointer to the registration structure. The others
+get a pointer to the instance structure, which in turn contains a pointer to
+the registration structure. 
+</p>
+
+<h4><a name="anchor5">3.2</a>&nbsp;Accepting Requests</h4>
+
+<p>
+ Once a profile implementation is registered with a wrapper, the
+implementation is ready to be invoked. The wrapper invokes <b>pro_connection_init</b>
+(indirectly via the profile registration structure) as soon as the wrapper is
+started. Since no channels are open yet, a simple profile needn't do anything.
+However, if there is configuration to be loaded or database access to be
+obtained or something like this, <b>pro_connection_init</b> is where an implementation
+would deal with that.
+</p>
+
+<p>
+Since in this part of the tutorial we are dealing with the listening side,
+our profile registration includes the application's default mode in its
+"listener_modes" pointer.
+In most cases,
+your profile doesn't care whether it's running over an encrypted
+session or not,
+so your profile usually consults a configuration file,
+using the value "plaintext,encrypted" as a default.
+Of course,
+if your profile requires privacy,
+e.g., the SASL PLAIN profile,
+then you should hard-wire this accordingly.
+</p>
+
+<p>
+ When the wrapper's mode is such that the profile is available,
+<b>pro_session_init</b> will be called as well. Again, for this simplest of profiles,
+nothing needs to be done.
+</p>
+
+<p>
+ Eventually, when the remote peer delivers its greeting, the wrapper will
+invoke <b>pro_greeting_confirmation</b>. This is primarily useful for an initiating
+profile, so we'll defer the discussion of that function until later. 
+</p>
+
+<p>
+ The first time at which a trivial listener profile actually needs to do
+something significant is when the remote peer opens a channel on that profile.
+When this happens, the wrapper will call <b>pro_start_indication</b> with two
+arguments. The first will be the address of a newly allocated profile instance
+structure. The wrapper fills in all fields of interest in the structure.
+The second argument is a pointer to a profile structure which
+represents one &lt;profile&gt; element
+within the &lt;start&gt; element.
+</p>
+
+<p>
+ When the <b>pro_start_indication</b> entry is called, the profile implementation
+is expected to process the profile piggyback data and decide whether to open
+the channel. The very first call the profile instance makes to the wrapper must
+be a call to <b>bpc_start_response</b>. That function takes three parameters:
+a channel pointer (taken from the profile instance),
+a single profile structure (possibly with the piggyback data),
+and a diagnostic structure indicating the reason the channel could not
+be opened.
+If the channel opens successfully but the profile wishes to return an error as
+piggyback data, then the diagnostic pointer must be NULL,
+the error must be encoded as piggyback data. If the diagnostic pointer
+is non-NULL, the
+profile instance will be immediately reaped.
+</p>
+
+<p>
+ It should be noted that the wrapper itself might refuse to open a channel
+before the profile implementation sees any indication that the remote peer
+tried to start a channel. This would be the case if the wrapper itself is low
+on resources, for example. 
+</p>
+
+<p>
+ Assuming the profile instance has allowed the channel to start, it should expect to start receiving messages. The
+three functions that might be called during normal processing are
+<b>pro_frame_available</b>, <b>pro_message_available</b>, and <b>pro_window_full</b>.
+The first two
+are straightforward. They inform the instance that either a frame has been
+received, or a frame with the "more" header flag set to "." has arrived. Only
+one of these will be called, depending on whether the "full_messages" flag is
+set in the registration. Assuming that we are interested in full messages only,
+when the last frame of a message arrives for our channel, the
+<b>pro_message_available</b> function will be invoked. 
+</p>
+
+<p>
+ It is important to note that when <b>pro_message_available</b> (or
+<b>pro_frame_available</b>) is invoked, the wrapper has not done anything with the
+message (or frame).
+The profile implementation is expected to call <b>bpc_query_message</b> (or
+<b>bpc_query_frame</b>) in order to obtain the frames. The implementation
+must also call 
+<b>bpc_frame_destroy</b> when it is finished with the frames so fetched; this opens up
+the receiving window on the channel again. <b>bpc_frame_aggregate</b> is useful for
+profiles that deal with messages rather than frames, as it can take the result
+from <b>bpc_query_message</b> and turn it into a single contiguous frame as
+if it had been received that way.
+</p>
+
+<p>
+ For convenience, the last character after the payload on an incoming frame
+is set to '\0' as well, allowing simple string handling for text-oriented
+protocols. However, no other processing is done on the body of the message. In
+particular, the profile implementation is expected to process the MIME headers
+and deal with any content-transfer-encoding introduced by the remote peer, to
+parse any XML, to deal with end-of-line translations, and so on. 
+</p>
+
+<p>
+ Once the profile implementation has decided how to answer a message, it
+allocates a frame using <b>bpc_buffer_allocate</b> and then calls <b>bpc_send</b>.
+The implementation must provide all values of interest,
+such as the message type, channel number,
+message number, answer number, and the "more" flag. The size field is already
+set to the original requested size; this value can be decreased but not
+increased. The payload pointer should not be modified; instead, you should copy
+your payload to where the payload pointer points. For convenience, there is at
+least one extra character of space after the requested payload size, so it's
+legal to use strcpy (which copies the extra '\0') without running off the end
+of the allocated space. The wrapper will take care of deallocating the
+frame once it has been sent.  
+</p>
+
+<p>
+ Eventually, the remote peer will tire of invoking the services of this
+profile and will close the channel. When this happens, the wrapper will call
+<b>pro_close_indication</b>. This function is told whether it is the local or remote
+peer trying to close the channel and whether it is the session or just the
+channel being closed. <b>pro_close_indication</b> decides whether it is allowable to
+close and calls <b>bpc_close_response</b> with a 
+a channel pointer (taken from the profile instance),
+and a diagnostic.
+If the dignostic is non-NULL,
+That diagnostic will be returned as an &lt;error&gt; element in response to the
+close, and the close will not occur. 
+</p>
+
+<p>
+ The profile instance, upon agreeing to close, should stop sending MSG
+messages. However, it should continue to process any MSG messages it receives,
+answering them. It should also process any reply frames it receives, discarding
+them. 
+</p>
+
+<p>
+ Eventually, when both sides settle down, <b>pro_close_confirmation</b> will be
+called.
+This tells the profile instance whether the close has actually happened.
+If so,
+the profile module should deallocate any additional
+resources that particular instance was using.
+</p>
+
+<p>
+ The only difficult parts of this process are handing of start indications
+and message arrivals. For the simplest of profiles, the other functionality is
+trivial. 
+</p>
+
+<h4><a name="anchor6">3.3</a>&nbsp;Generating Requests</h4>
+
+<p>
+ On the other side of the connection is the initiating profile. It too supplies a profile registration structure. It too is initialized for the process and for the session.  
+</p>
+
+<p>
+ The first significant difference is that the "client" side must initiate
+the connection, rather than listening for an incoming connection. This is part
+of the application, rather than part of the profile implementation, but it
+could have interactions with the profile implementation. We'll get into that
+more below. 
+</p>
+
+<p>
+The second significant difference is that the "client" side must
+also start one or more channels.
+There are two ways of doing this.
+First,
+the profile module can provide additional entry points;
+Alternatively,
+when the wrapper makes the <b>pro_greeting_confirmation</b> call,
+the profile module may decide to start one or more channels.
+(We'll look at these choices in more detail later on.)
+Regardless,
+<b>bp_start_request</b> is used to start a channel.
+</p>
+
+<p>
+<b>bp_start_request</b> takes many arguments:
+a pointer to a wrapper,
+the channel/message number to use for the request,
+a pointer to a profile structure,
+the serverName to request,
+a callback function,
+and a client-data pointer.
+Calling
+<b>bp_start_request</b> generates the &lt;start&gt; message. The callback function is
+called when the remote peer answers the &lt;start&gt; message with either a
+&lt;profile&gt; or an &lt;error&gt; element. When this happens, the callback is
+called with a channel pointer, a diagnostic pointer, and the client-data.
+If the channel is going to be opened,
+the diagnostic pointer is NULL;
+otherwise,
+the channel pointer should be ignored.
+If the channel is being started,
+a new profile instance structure has been
+initialized at this time, but no call has been made to any of the <b>pro_</b>
+functions it has registered. The callback function should take care not to
+block. One common use of the callback is to copy information from the passed
+client-data pointer into the user fields of the profile instance.
+</p>
+
+<p>
+If the channel is started,
+then after the callback returns,
+then <b>pro_start_confirmation</b> is called on the new profile instance.
+</p>
+
+<p>
+ Once the profile instance receives this call, it can start generating
+messages. It simply allocates a frame with <b>bpc_buffer_allocate</b>, fills in the
+payload, and calls <b>bpc_send</b> to dispatch it. Calls to
+<b>pro_message_available</b> (or <b>pro_frame_available</b>)
+result in calls to <b>bpc_query_message</b> (or <b>bpc_query_frame</b>) and the subsequent
+handling of the received replies. 
+</p>
+
+<p>
+ After a while, the profile instance tires of sending echoes and decides to
+close the channel. It simply stops sending MSG frames and calls
+bpc_close_request, passing the channel pointer.
+in the wrapper and the channel number of interest,
+a callback function,
+and a client-data pointer.
+While waiting for the answer, the profile must continue to deal with any
+incoming MSG frames, generating replies as appropriate. It should also deal
+with any replies to outstanding messages it has sent. However, it should avoid
+initiating new MSG frames until the close request has been confirmed. 
+</p>
+
+<p>
+The callback function is
+called when the remote peer answers the &lt;close&gt; message with either a
+&lt;ok&gt; or an &lt;error&gt; element. When this happens, the callback is
+called with a channel pointer, a diagnostic pointer, and the client-data.
+If the channel is going to be closed,
+the diagnostic pointer is NULL.
+Regardless,
+the wrapper will call <b>pro_close_confirmation</b> to indicate what happened.
+If the channel was closed,
+the profile module should deallocate any additional
+resources that particular instance was using.
+</p>
+
+<p>
+ At any point, <b>bp_shutdown</b> may be invoked. This immediately aborts
+all profiles and cleans up, then signals that it has finished. 
+</p>
+
+<h4><a name="anchor7">3.4</a>&nbsp;Who Gets to Start a Channel?</h4>
+
+<p>
+ The first question that might come to mind is "how do I actually arrange to
+get the initiating profile started?" In other words, who calls
+<b>bp_start_request</b>? There are two places from which this function can be
+invoked. First, a profile can be completely "stand-alone," invoking the
+<b>bp_start_request</b> from the <b>pro_greeting_confirmation</b> call, as described.
+Alternately, the application itself could watch for the greeting to be received
+and invoke <b>bp_start_request</b>. Let's take a look at these two possibilities.
+
+</p>
+
+<p>
+ For the first possibility, one might imagine a chat client that reads from
+the command line the chat server to which the user wishes to connect. In this
+case, the application would connect to the indicated server and start the
+wrapper. The reception of the greeting would trigger the profile implementation
+to open a window into which the user can type messages and into which the
+profile implementation posts messages received. 
+</p>
+
+<p>
+ For the second possibility, imagine a chat client that opens a window into
+which a user can type requests to connect. In this case, the application must
+open the window and handle the I/O with the window. When the user enters the
+name of the server to which he wishes to be connected, the application reads
+and interprets this command. It opens the socket and starts the wrapper on the
+socket, then waits for a greeting. When the greeting is received, the
+application issues the <b>bp_start_request</b>, passing the address of the window as
+the client data, which is in turn passed on to the profile instance. When
+messages are received, the profile instance uses the saved window pointer to
+post the messages to the window. 
+</p>
+
+<a name="anchor8"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>4.&nbsp;Advanced Topics</h3>
+
+<p>
+ There are a number of topics that do not arise when dealing with simple
+profiles. However, these topics do arise when dealing with very complicated
+profiles. These complications are discussed here. 
+</p>
+
+<h4><a name="anchor9">4.1</a>&nbsp;Starting Other Profiles</h4>
+
+<p>
+ Probably the most common need will be starting a TLS or SASL profile.
+Generally, tuning profiles (in the RFC3080 meaning of the word) will
+provide an API to start them. This API will allow the application to provide
+information that is not included in the &lt;start&gt; request, such as the
+certificate files the TLS implementation is to use, or the user name and
+password that the SASL implementation is to use. It is expected that tuning
+profiles will also accept a callback to be called when tuning completes, but
+this will vary between implementations. 
+</p>
+
+<p>
+ Alternately, some profiles may start themselves when so configured and they
+receive an appropriate <b>pro_greeting_confirmation</b>. Inspect the documentation for
+individual profile implementations to determine this. 
+</p>
+
+<h4><a name="anchor10">4.2</a>&nbsp;Window Overruns</h4>
+
+<p>
+ A window overrun occurs when the profile implementation wishes to handle
+only complete messages, but a complete message does not fit into the available
+channel window size. In this case, additional frames cannot be received without
+action on the profile's part, but the profile will not take action until
+additional frames are received. 
+</p>
+
+<p>
+ If a profile expects messages of an arbitrarily large size, it should
+handle the messages a frame at a time. There is no other reasonable way to
+behave if the size of messages is truly unbounded. For example, if a request
+provides a file name and the response provides the file's contents as one giant
+RPY, the file contents must be written to disk (or a different socket) as it
+arrives, since it might be larger than memory. 
+</p>
+
+<p>
+ If a profile expects messages whose size is limited, it should set the
+channel receive window size to be somewhat larger than the maximum expected
+message size. In this case, it is a protocol error if the window fills without
+a complete message being present. For example, if the profile fetches the
+current time from the peer in ISO format, it is safe to expect a conforming
+peer will not send more than 4K in response to the request. If the default
+window fills up without a complete message for this profile, it is safe to
+assume the remote peer is in error. 
+</p>
+
+<p>
+ Thus, there are several cures for the situation in which the receive window
+fills without a complete message being present. The profile instance can handle
+incoming messages one frame at a time. The profile instance can send a
+preemptive &lt;error&gt; and ignore the message, discarding all present and
+future frames until it gets to the final frame. The profile instance can
+increase the size of the receive window, allowing more frames to be sent. 
+</p>
+
+<h4><a name="anchor11">4.3</a>&nbsp;Tuning Resets</h4>
+
+<p>
+ A tuning reset occurs when a tuning profile has changed the underlying
+protocol used on the socket and wishes to start a new session with a new
+greeting. [!@!@ OTHER THAN THAT, WE'LL DOCUMENT IT MORE LATER.] 
+</p>
+
+<h4><a name="anchor12">4.4</a>&nbsp;Multiple Sessions</h4>
+
+<p>
+ There are also several situations in which a profile might wish to deal
+with multiple interacting sessions at once. In the simplest case, the number of
+sessions being managed is strictly limited. For example, imagine a profile
+designed to run on a firewall, granting access to machines inside the firewall
+based on SASL logins to the firewall machine. In this case, there would be the
+listening profile that accepts the connection. After the remote peer has logged
+in properly, it can request a connection to a machine inside the firewall by
+starting this profile. The profile instance would receive the start indication
+and attempt to open a socket to the machine indicated in the piggyback data.
+When that socket connected, the profile instance would start a new wrapper, a
+second wrapper to handle the interactions on the new socket. Then a channel
+would be started on the second wrapper, and interactions between the two active
+profile implementations would need to be coordinated by those profiles. 
+(Incidentally, this is known as the TUNNEL profile.) 
+</p>
+
+<p>
+ As another example, imagine a multi-user game server. This server would
+maintain a number of listening wrappers within the same UNIX process. Messages
+coming in from one wrapper would need to be coordinated with messages coming in
+from other wrappers, and perhaps copied and sent out to other wrappers.
+Different channels on the same session might be carrying inter-player
+conversation, images of the surroundings, viewpoint information, and so on.
+Such inter-session communication is left up to the application to coordinate.
+
+</p>
+
+<a name="anchor13"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>5.&nbsp;Sample Code and Execution</h3>
+
+<p>
+The best way to understand what's going on is to look at the file
+<b>profiles/null-profiles.c</b> &#151; it shows everything you need to
+know when writing a simple profile.
+</p>
+
+<h4><a name="anchor14">5.1</a>&nbsp;For Those Reading Source Code</h4>
+
+<p>
+ This section takes a quick look at starting a channel on an
+already-established session, tracking the creation of various private data
+structures. The information presented here is not necessary for the use of the
+libraries, but it may help to explain some concepts to those looking at the
+source code. 
+</p>
+
+<p>
+ The first example shows a machine named ALPHA opening a channel to its peer named BETA, and the channel open succeeding. 
+</p>
+
+<blockquote class="text">
+
+<p>
+ ALPHA's application layer calls <b>bp_start_request</b>. 
+</p>
+
+<p>
+ ALPHA's wrapper remembers the callback and user data, then calls blu_start_request. 
+</p>
+
+<p>
+ ALPHA's core library creates a "struct channel", marks it as half open, formats the XML &lt;start&gt; message, and queues it on channel zero. 
+</p>
+
+<p>
+ ALPHA's wrapper is notified (via notify_lower) that octets are ready, and those octets are copied to the socket. 
+</p>
+
+<p>
+ BETA receives the header, allocates a frame, and receives the body into the frame. 
+</p>
+
+<p>
+ BETA queues the completely-received frame onto its own channel zero structure, and calls notify_upper. 
+</p>
+
+<p>
+ BETA's wrapper calls blu_chan0_parse to receive the message. blu_chan0_parse interprets the XML, creates a channel structure, and marks it as half-started. It then returns the chan0_msg. 
+</p>
+
+<p>
+ BETA's wrapper examines the chan0_msg, decides which profile to instantiate, creates a profile instance, and calls <b>pro_start_indication</b>. 
+</p>
+
+<p>
+ BETA's profile handles the piggyback data (if any) and returns a successful result via <b>bpc_start_response</b>. 
+</p>
+
+<p>
+ BETA's wrapper passes the response to blu_chan0_reply. blu_chan0_reply matches the response against the request, sees that it is a &lt;profile&gt; and not an &lt;error&gt;, and marks the channel as fully open. It then creates the XML and queues it on channel zero. 
+</p>
+
+<p>
+ BETA's wrapper is notified via notify_lower that octets are waiting, and the wrapper copies them to the socket. 
+</p>
+
+<p>
+ ALPHA's wrapper pulls the octets off the socket, and stores them into the library. 
+</p>
+
+<p>
+ When the complete frame has arrived, ALPHA's core library calls notify_upper to inform ALPHA's wrapper that a channel zero message is ready. 
+</p>
+
+<p>
+ ALPHA's wrapper calls blu_chan0_parse. blu_chan0_parse parses the XML and constructs a chan0_msg. blu_chan0_parse sees that the chan0_msg is a positive response to the chan0_msg sent as a request earlier and marks the associated channel as fully open, then returns the chan0_msg to the wrapper. 
+</p>
+
+<p>
+ ALPHA's wrapper sees the positive confirmation, creates a profile instance for the profile selected by BETA. It then invokes the remembered callback, and then invokes the <b>pro_start_confirmation</b>. 
+</p>
+
+</blockquote>
+<p>
+
+<a name="rfc.authors"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>Author's Address</h3>
+<table width="99%" border="0" cellpadding="0" cellspacing="0">
+<tr><td class="author-text">&nbsp;</td>
+<td class="author-text">Darren New</td></tr>
+<tr><td class="author-text">&nbsp;</td>
+<td class="author-text">5390 Caminito Exquisito</td></tr>
+<tr><td class="author-text">&nbsp;</td>
+<td class="author-text">San Diego, CA  92130</td></tr>
+<tr><td class="author-text">&nbsp;</td>
+<td class="author-text">US</td></tr>
+<tr><td class="author" align="right">Phone:&nbsp;</td>
+<td class="author-text">+1 858 350 9733</td></tr>
+<tr><td class="author" align="right">EMail:&nbsp;</td>
+<td class="author-text"><a href="mailto:dnew@san.rr.com">dnew@san.rr.com</a></td></tr>
+</table>
+
+<a name="anchor15"><br><hr size="1" shade="0"></a>
+<table border="0" cellpadding="0" cellspacing="2" width="30" height="15" align="right"><tr><td bgcolor="#990000" align="center" width="30" height="15"><a href="#toc" CLASS="link2"><font face="monaco, MS Sans Serif" color="#ffffff" size="1"><b>&nbsp;TOC&nbsp;</b></font></a><br></td></tr></table>
+<h3>Appendix A.&nbsp;Copyright and License</h3>
+
+<p>
+Blocks Public License
+<br>
+
+Copyright (c) 2000, Invisible Worlds, Inc. 
+<br>
+
+All rights reserved.
+</p>
+
+<p>
+Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions are met: 
+
+<ul class="text">
+
+<li>
+Redistributions of source code must retain the above copyright notice, 
+  this list of conditions and the following disclaimer.
+</li>
+
+<li>
+Redistributions in binary form must reproduce the above copyright notice, 
+  this list of conditions and the following disclaimer in the documentation 
+  and/or other materials provided with the distribution.
+</li>
+
+<li>
+Neither the name, trademarks, or tradenames of Invisible Worlds, Inc., nor 
+  the names, trademarks, or tradenames of its contributors may be used to 
+  endorse or promote products derived from this software without specific 
+  prior written permission.
+</li>
+
+</ul>
+<p>
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' 
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+DISCLAIMED. IN NO EVENT SHALL INVISIBLE WORLDS OR CONTRIBUTORS BE LIABLE FOR 
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND 
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+</p>
+</font></body></html>

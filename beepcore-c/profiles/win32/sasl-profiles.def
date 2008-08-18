@@ -1,0 +1,4 @@
+LIBRARY   SASL_ANON_OTP
+DESCRIPTION "SASL ANONYMOUS and OTP profile implementation"
+EXPORTS
+   sasl_profiles_Init

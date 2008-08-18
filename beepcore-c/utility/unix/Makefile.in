@@ -1,0 +1,88 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/utility/unix/Makefile.in,v 1.4 2002/03/28 23:03:10 sweetums Exp $
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+include $(SRC_ROOT)/Make.defs
+#
+#
+#
+incfile= Makefile
+
+VPATH = ..:../test
+
+MEMOBJS	= bp_malloc.lo
+XMLOBJS = xml_entities.lo
+XMLGLOBOBJS = xml_parse_globals.lo
+
+OBJS = 	$(MEMOBJS) \
+	bp_hash.lo \
+	bp_queue.lo \
+	bp_clist.lo \
+	bp_slist_utility.lo
+
+all: libbputil.la libbeepxmlutil.la libxmlglobal.la hashtest unit_xml_entities unit_clist
+
+clean:
+	touch foo.o foo.so ; \
+	rm -rf *.o *.so *.la *.lo *.a .libs ;\
+	rm -f  configtest hashtest unit_xml_entities unit_clist
+
+hashtest: $(OBJS) hashtest.lo hashtest.lo $(XMLOBJS) $(XMLGLOBOBJS) $(MEMOBJS) 
+	$(LDLIBTOOL) $(CC) $(prelib) -o $@ hashtest.lo $(OBJS) $(SYSLIBS) $(XMLOBJS) $(XMLGLOBOBJS)
+
+unit_xml_entities: unit_xml_entities.lo $(XMLOBJS) $(XMLGLOBOBJS) $(MEMOBJS) 
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) -o $@ unit_xml_entities.lo $(XMLOBJS) $(XMLGLOBOBJS) $(MEMOBJS) 
+
+unit_clist: unit_clist.lo $(MEMOBJS) 
+	$(LDLIBTOOL) $(CC) $(CCFLAGS) -o $@ unit_clist.lo bp_clist.lo $(MEMOBJS) 
+
+libbputil.la: $(OBJS)
+	$(LDLIBTOOL) $(CC) -o $@ $(OBJS) $(LIBTOOL_LDFLAGS) $(SYSLIBS)
+
+libxmlglobal.la: $(XMLGLOBOBJS)
+	$(LDLIBTOOL) $(CC) -o $@ $(XMLGLOBOBJS) $(LIBTOOL_LDFLAGS)
+
+libbeepxmlutil.la: $(XMLOBJS)
+	$(LDLIBTOOL) $(CC) -o $@ $(XMLOBJS) $(LIBTOOL_LDFLAGS)
+
+install: $(LIB_INSTALL_DIR)
+	 $(INSTALLLIB) libbeepxmlutil.la $(LIB_INSTALL_DIR)/.
+	 $(INSTALLLIB) libbputil.la      $(LIB_INSTALL_DIR)/.
+	 $(INSTALLLIB) libxmlglobal.la   $(LIB_INSTALL_DIR)/.
+	 $(INSTALLFINISH) $(LIB_INSTALL_DIR)/.
+
+$(LIB_INSTALL_DIR):
+	$(INSTALLDIR) $@
+
+.DEFAULT:
+
+################################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets
+

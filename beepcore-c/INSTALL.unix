@@ -1,0 +1,118 @@
+$Id: INSTALL.unix,v 1.6 2002/01/12 23:46:51 mrose Exp $
+
+This file explains how to install the C/C++ BEEP Core libraries on your
+system.
+
+
+ABOUT
+
+The C/C++ BEEP Core is a P2P application protocol framework (specified by
+RFC3080, RFC3081) for connection-oriented, async request/response messages.
+It allows multiplexing of message streams over one transport connection,
+and supports binary and textual messages, TLS, SASL/Anonymous, SASL/OTP.
+
+For further information about BEEP, see the 'Further Information' section
+at the end of this document.
+
+
+TOOLS AND LIBRARIES
+
+To build the C/C++ BEEP Core, you'll need the following tools, and
+libraries:
+
+  * GCC 2.95 or later.
+  * OpenSSL 0.9.4 or later.
+  * unproven-threads (NetBSD only)
+
+If you run Debian, you'll want to install the openssl and the libssl-dev
+packages.  Advice for other operating systems or distributions of Linux
+is welcome.
+
+Optionally, you may also want to install:
+
+  * Cyrus SASL v2.1.0
+    ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/cyrus-sasl-2.1.0.tar.gz
+
+
+PLATFORMS
+
+Currently, the C/C++ BEEP Core compiles and works on Linux, Solaris,
+NetBSD and Windows.  Patches to provide portability to other platforms
+are welcome.
+
+
+CONFIGURATION, BUILDING and INSTALLATION
+
+To configure the C/C++ BEEP Core, you'll use the configure script
+present in the root directory of the distribution that you received.
+
+You may want to specify some options:
+
+    --with-openssl=/path/to/openssl
+
+      This specifies the location where the lib and include directories
+      which contain your OpenSSL installation may be found.  If your
+      installation is in /usr/include and /usr/lib (as would result
+      from installing a Debian package), then you needn't specify this
+      at all.
+
+    --with-cyrus-sasl=/path/to/cyrus-sasl-2.1.0-BETA/
+
+      This specifies the location where the lib and include directories
+      containing your Cyrus SASL installation are found.  If your
+      installation is in /usr/include and /usr/lib, then you needn't
+      specify this at all.
+
+        NB: At present, support for Cyrus SASLv2 doesn't include security
+	    layers. This limitation will be fixed very soon.
+
+    --enable-optimization=<value>
+
+      This specifies the desired optimization level.  By default,
+      it will only enable -O.  Values of 0, 1, 2, 3 are valid.
+
+      If you wish to build without any optimization, then you may
+      use --disable-optimization.
+
+    --enable-debug
+
+      This signifies that you would like to build with debug information
+      and is off by default.  You may explicitly disable it with
+      --disable-debug.
+
+Once you've worked out what options you want to use, you just run the
+configure script with those options:
+
+  ./configure --with-openssl=/usr/local --enable-optimization=2
+
+To build the C/C++ BEEP Core, just type 'make' once you've configured it.
+
+Finally, once you have successfully built the C/C++ BEEP Core, you can
+install it by running 'make install' from the top level directory of
+the distribution.
+
+
+REPORTING BUGS
+
+All bugs should be reported on the bug tracker located on the
+SourceForge project page, http://sourceforge.net/projects/beepcore-c/.
+
+
+FURTHER INFORMATION
+
+For further information about BEEP and the C/C++ BEEP Core, be sure to
+read the documents in the 'documenation' directory as well as visit
+the following sites:
+
+ * SourceForge project page
+   http://beepcore-c.sourceforge.net/
+
+ * beepcore.org:
+   http://www.beepcore.org/
+
+ * Defining RFCs:
+   http://www.ietf.org/rfc/rfc3080.txt
+   http://www.ietf.org/rfc/rfc3081.txt
+
+ * IETF BEEP working group:
+   http://www.ietf.org/html.charters/beep-charter.html

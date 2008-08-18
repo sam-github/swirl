@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<section title="Glossary" anchor="glossary">
+
+<list style="hanging">
+
+<t hangText="Profile"> - A specification of the behavior of a particular BEEP
+channel.</t>
+
+<t hangText="Profile Implementation"> - A piece of code implementing a
+profile's specification. Sometimes simply "profile" where this is not
+ambiguous. This is a "concrete class" implementing the profile.</t>
+
+<t hangText="Profile Registration"> - A structure that specifies the entry points and other static information about one profile within a profile implementation. This is similar to an "abstract interface" to a class.</t>
+
+<t hangText="Profile Instance"> - A data structure representing an open
+channel. The instance has a reference to its registration and serves as an
+"instance" of the profile "class."</t>
+
+<t hangText="Application"> - The top-level code that runs in a process. It is responsible for managing profile registrations and sockets, and assigning sockets and registrations to wrappers. </t>
+
+<t hangText="Session Structure"> - The low-level session instance as defined by
+the core libraries. The session structure represents a single session, from
+greeting to close. It tracks open channels and outstanding messages. However,
+it does no I/O itself, and it has no concept of "profile" as such. A new
+session structure must be created to generate a greeting, so a TLS tuning reset
+will create a new session structure.</t>
+
+<t hangText="Wrapper"> - The wrapper is the code that provides I/O services for
+the session and interfaces to profile instances. It is responsible for
+determining which profiles shall run, creating threads for them,
+managing the timing requirements of the lower layer libraries, locking
+where necessary, logging of important events, and so on.</t>
+
+<t hangText="Wrapper Instance"> - This represents an entire connection, from
+the opening of the socket to the closing of the socket. It is a structure 
+managed by the wrapper code.
+</t>
+
+<t hangText="Wrapper Mode"> - Each session within a wrapper is in a particular
+mode. A tuning reset can change modes. For example, "plaintext" and "encrypted"
+might be two modes. Profiles indicate the modes in which they are active when
+they register, and the wrapper ensures that active profiles are properly
+managed. Modes are arbitrary short strings.</t>
+
+<t hangText="Request, Indication, Response, Confirmation"> - These four terms
+(from the OSI reference model) name the four messages which cross the API
+boundaries in a client-server model. The request is the initial message sent.
+When it arrives at the peer, it is an indication. The peer's answer is formed
+as a response. When the response is delivered, it is a confirmation. Note that
+confirmations can be negative or positive; both &lt;error&gt; and &lt;ok&gt;
+can be confirmations.</t>
+
+</list>
+
+</section> <!--Glossary-->
+

@@ -1,0 +1,198 @@
+dnl Beepcore-C configuration.
+dnl Written by Bruce Mitchener <bruce@cubik.org>
+dnl
+dnl Copyright (C) 2001  Bruce Mitchener.
+dnl
+dnl $Id: configure.in,v 1.8 2002/01/04 07:07:03 mrose Exp $
+dnl
+AC_INIT(Makefile.in)
+
+AC_CANONICAL_HOST
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_INSTALL
+AC_PROG_LIBTOOL
+
+case "$host" in
+  sparc-sun-solaris* )
+    TARGET_LIBS="-lrt -lthread -lsocket -ldl -lnsl -lc"
+    TARGET_DEFINES="-DSUNOS"
+    ;;
+  *linux* )
+    TARGET_LIBS="-lrt -lpthread -ldl -lnsl -lc"
+    TARGET_DEFINES="-DLINUX"
+    ;;
+  *netbsd* )
+    TARGET_LIBS="-L/usr/pkg/pthreads/lib -lpthread"
+    TARGET_DEFINES="-DNETBSD -DUNPROVEN -I/usr/pkg/pthreads/include"
+    ;;
+esac
+
+AC_ARG_WITH(openssl,
+  [  --with-openssl=DIR      Specify location of OpenSSL.],
+  [  SSL_PREFIX=$withval
+     if test -n "$SSL_PREFIX" -a ! "$SSL_PREFIX" = "yes"; then
+       SSL_LIBS=$SSL_PREFIX/lib;                          
+       SSL_INCLUDES=$SSL_PREFIX/include;
+     fi                                 
+  ]
+)
+ 
+_SAVE_LDFLAGS="$LDFLAGS"
+
+if test "${SSL_PREFIX}" = "/usr"; then
+  AC_MSG_WARN([You probably don't want to use --with-openssl=/usr.])
+fi
+
+if test -n "${SSL_LIBS}"; then
+  SSL_LINK_FLAGS="-L${SSL_LIBS}"
+fi
+
+if test -n "${SSL_LIBS}" -a ! -d "${SSL_LIBS}"; then
+  AC_MSG_ERROR([It appears that ${SSL_LIBS} does not exist or is not a directory.  Did you mean to specify something else?])
+fi
+
+LDFLAGS="$SSL_LINK_FLAGS $LDFLAGS"
+if test -z "${SSL_PREFIX}"; then
+AC_CHECK_LIB(
+  ssl,
+  SSL_library_init,
+  [],
+  [AC_MSG_ERROR([You must have installed OpenSSL.  Please see the installation instructions.])],
+  [-lcrypto]
+)
+fi
+
+LDFLAGS="$_SAVE_LDFLAGS"
+
+if test -n "${SSL_LIBS}"; then
+  SSL_LIBS="-L${SSL_LIBS}"
+fi
+
+if test -n "${SSL_INCLUDES}" -a ! -f "${SSL_INCLUDES}/openssl/ssl.h"; then
+  AC_MSG_ERROR([You are missing the OpenSSL include files or have specified an invalid location for them.])
+elif test -z "${SSL_INCLUDES}" -a ! -f "/usr/include/openssl/ssl.h"; then
+  AC_MSG_ERROR([You are missing the OpenSSL include files or have specified an invalid location for them.])
+fi
+
+if test -n "${SSL_INCLUDES}"; then
+  SSL_INCLUDES="-I${SSL_INCLUDES}"
+fi
+
+AC_ARG_WITH(cyrus-sasl,
+  [  --with-cyrus-sasl=DIR   Specify location of Cyrus SASLv2.],
+  [  CYRUS_PREFIX=$withval
+     if test "$CYRUS_PREFIX" = "no"; then
+         CYRUS_PREFIX=""
+     elif test "$CYRUS_PREFIX" = "/usr"; then
+       CYRUS_PREFIX=yes
+     elif test -n "$CYRUS_PREFIX" -a ! "$CYRUS_PREFIX" = "yes"; then
+       CYRUS_LIBS=$CYRUS_PREFIX/lib;                          
+       CYRUS_INCLUDES=$CYRUS_PREFIX/include;
+     fi                                 
+  ],
+  [  AC_CHECK_LIB(
+        sasl2,
+        sasl_server_init,
+        [ CYRUS_PREFIX=/usr ],
+        [ CYRUS_PREFIX=""   ]
+     )
+  ]
+)
+
+if test -n "${CYRUS_LIBS}"; then
+  if test ! -d "${CYRUS_LIBS}"; then
+    AC_MSG_ERROR([It appears that ${CYRUS_LIBS} does not exist or is not a directory.  Did you mean to specify something else?])
+  fi
+  CYRUS_LIBS="-L${CYRUS_LIBS} -lsasl2"
+fi
+
+if test -n "${CYRUS_INCLUDES}"; then
+  if test ! -f "${CYRUS_INCLUDES}/sasl/sasl.h"; then
+    AC_MSG_ERROR([You are missing the Cyrus SASLv2 include files or have specified an invalid location for them.])
+  fi
+  CYRUS_INCLUDES="-I${CYRUS_INCLUDES}"
+fi
+
+if test "$CYRUS_PREFIX" = "yes"; then
+  AC_CHECK_LIB(
+     sasl2,
+     sasl_server_init,
+     [ CYRUS_LIBS="-lsasl2" ],
+     [ AC_MSG_ERROR([You must specify the location of Cyrus SASLv2.]) ]
+  )
+fi
+
+if test -n "$CYRUS_PREFIX"; then
+  CYRUS_DEFINES="-DCYRUS_SASL"
+  CYRUS_SOBJ="cyrus-profiles.lo"
+  CYRUS_SLIB="libcyrus-profiles.la"
+  SASLP_SLIB="$CYRUS_SLIB"
+else
+  CYRUS_NONE='": "'
+  SASLP_SLIB="libsasl-profiles.la"
+fi
+
+AC_MSG_CHECKING(optimization level)
+AC_ARG_ENABLE(optimization,
+  [ --enable-optimization=LEVEL Enable optimization.],
+  [ if test ${enableval} = "no"; then
+      AC_MSG_RESULT(none)
+    elif test -n ${enableval} -a ! ${enableval} = "yes"; then
+      AC_MSG_RESULT(-O${enableval})
+      OPT_CFLAGS=-O${enableval}
+    else
+      AC_MSG_RESULT(-O)
+      OPT_CFLAGS=-O
+    fi
+  ],
+  [ AC_MSG_RESULT([default(-O)])
+    OPT_CFLAGS=-O
+  ]
+)
+
+AC_MSG_CHECKING(debug info desired)
+AC_ARG_ENABLE(debug,
+  [ --enable-debug               Enable debugging information.],
+  [ if test -n ${enableval} -a ${enableval} = "no"; then
+      AC_MSG_RESULT(none)
+    else
+      DEBUG_CFLAGS=-g
+      AC_MSG_RESULT(-g)
+    fi
+  ],
+  [ AC_MSG_RESULT(none)]
+)
+
+AC_SUBST(TARGET_LIBS)
+AC_SUBST(TARGET_DEFINES)
+AC_SUBST(SSL_INCLUDES)
+AC_SUBST(SSL_LIBS)
+AC_SUBST(CYRUS_DEFINES)
+AC_SUBST(CYRUS_INCLUDES)
+AC_SUBST(CYRUS_LIBS)
+AC_SUBST(CYRUS_SOBJ)
+AC_SUBST(CYRUS_SLIB)
+AC_SUBST(CYRUS_NONE)
+AC_SUBST(SASLP_SLIB)
+AC_SUBST(OPT_CFLAGS)
+AC_SUBST(DEBUG_CFLAGS)
+
+AC_OUTPUT(Makefile
+          Make.defs
+          core/Makefile
+          core/unix/test/Makefile
+          core/unix/Makefile
+          profiles/Makefile
+          profiles/unix/Makefile
+          threaded_os/Makefile
+          threaded_os/examples/unix/Makefile
+          threaded_os/examples/Makefile
+          threaded_os/transport/unix/Makefile
+          threaded_os/transport/Makefile
+          threaded_os/utility/unix/Makefile
+          threaded_os/utility/Makefile
+          threaded_os/wrapper/unix/Makefile
+          threaded_os/wrapper/Makefile
+          utility/unix/Makefile
+          utility/Makefile)

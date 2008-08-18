@@ -1,0 +1,35 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Id: Make.targets,v 1.3 2001/10/30 06:00:36 brucem Exp $
+#
+# This file contains the generic settings for make targets and the clean rules
+#
+ifdef DIRS
+
+treeall: 
+	@for i in $(DIRS) ; do cd $$i ; $(MAKE) all     ; cd .. ; done 
+
+treeclean:
+	@for i in $(DIRS) ; do cd $$i ; $(MAKE) clean   ; cd .. ; done
+
+treeinstall: $(DIST_ROOT)
+	@for i in $(DIRS) ; do cd $$i ; $(MAKE) install ; cd .. ; done
+
+$(DIST_ROOT):
+	mkdir -p $(DIST_ROOT)
+
+endif
+
+.PHONY: install

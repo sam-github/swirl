@@ -1,0 +1,72 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Header: /cvsroot/beepcore-c/beepcore-c/threaded_os/utility/unix/Makefile.in,v 1.4 2001/10/30 06:00:39 brucem Exp $
+#
+# Exit if SRC_ROOT undefined
+#
+REL_TO_ROOT = /../../..
+
+ifndef SRC_ROOT
+  SRC_ROOT = $(CURDIR)$(REL_TO_ROOT)
+  export SRC_ROOT
+endif
+
+# 1. Generic settings
+
+include $(SRC_ROOT)/Make.defs
+#
+#
+#
+VPATH = ..:../test:../../../utility
+
+GLOBUTILOBJS =  bp_hash.lo \
+		bp_malloc.lo \
+		bp_queue.lo \
+	        bp_slist_utility.lo \
+		xml_entities.lo \
+		xml_parse_globals.lo
+
+OBJS =  logutil.lo \
+	logconf.lo \
+	workthread.lo \
+	bp_config.lo 
+
+all: libbptosutil.la configtest 
+
+clean:
+	touch foo.o foo.so ; rm -rf *.o *.so configtest hashtest unit_xml_entities *.lo *.la .libs
+
+configtest: $(OBJS) configtest.lo $(GLOBUTILOBJS)
+	$(LDLIBTOOL) $(CC) $(prelib) -o $@ configtest.lo $(OBJS) $(SYSLIBS) \
+		$(GLOBUTILOBJS)
+
+libbptosutil.la: $(OBJS)
+	$(LDLIBTOOL) $(CC) -o $@ $(OBJS) $(SYSLIBS) $(LIBTOOL_LDFLAGS)
+
+install: $(LIB_INSTALL_DIR)
+	$(INSTALLLIB) libbptosutil.la $(LIB_INSTALL_DIR)/.
+	$(INSTALLFINISH) $(LIB_INSTALL_DIR)/.
+
+$(LIB_INSTALL_DIR):
+	$(INSTALLDIR) $@
+
+.DEFAULT:
+
+################################################################################
+#
+# Include the default behavior at the eend so as not to 
+# replace the default target above if any.
+#
+include $(SRC_ROOT)/Make.targets

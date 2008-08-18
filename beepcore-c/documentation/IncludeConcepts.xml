@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<section title="Concepts">
+
+<t> There are a number of concepts that are used throughout this document.
+Understanding these concepts is vital to understanding the document and the
+libraries. 
+Although the RFCs include many of these concepts,
+the libraries have implementation-specific meanings for them.
+These concepts are described herein. </t>
+
+<list style="hanging">
+<t hangText="Frame vs. Message"> - The first distinction is between a frame and
+a message. While both are clearly defined in the RFCs, the libraries deal only
+with frames. A frame that happens to hold both the beginning of a message and
+the end of a message is a complete message as well as a complete frame. Many
+places in the API accept a "frame," such as the routine to send a frame over a
+channel. It should be understood that if one wants to send a complete message,
+the complete message is put into a frame and one sends the frame. There are
+also API calls to determine if enough frames have arrived to form a complete
+message and to accept a series of frames and turn them into a single complete
+frame. </t>
+
+<t hangText="Session vs. Wrapper Instance"> - The RFCs are mildly confusing
+about what constitutes a session. In some places, a session is described as
+being established with a greeting. In other places, the description implies
+there is one session per transport connection. These two different
+interpretations come into conflict when a tuning reset is performed, which
+issues a new greeting over the same transport connection. For the purposes of
+this document, a new session starts just before a greeting is issued, and that
+session persists until channel zero is closed. Channel zero is closed when either the underlying transport connection is closed or before a non-BEEP negotiation (such as a TLS negotiation) starts,
+before another greeting is sent. The session can also be terminated without closing
+the underlying socket by a tuning reset understood by both peers but which does
+not result in a new BEEP greeting. (For example, a tuning reset after which
+some different protocol is used over the socket would fall into this category.)
+On the other hand, one wrapper instance corresponds to multiple BEEP sessions.
+A wrapper instance is finished when the last BEEP-formatted message has been
+exchanged. This occurs when a session is closed, a socket error occurs, a
+protocol error occurs, or a tuning reset explicitly destroys the wrapper
+without closing the socket (which is an example of the different-protocol
+tuning reset described previously). </t>
+
+<t hangText="Tuning Profile"> - The RFCs describe a tuning profile as one which
+configures something about the entire session and then either goes idle or
+initiates a tuning reset. In this document, and for purposes of the library, a
+tuning profile is one that initiates a tuning reset. There is no practical
+reason to distinguish a profile which runs briefly then idles from one which
+continues to run. In the sense used in this document, a tuning profile 
+monopolizes the connection, preventing other profiles from exchanging
+data while it runs. </t>
+
+<t hangText="Frame-mode vs. Message-mode"> - A profile implementation has two
+ways in which it can deal with incoming messages. It has the choice of dealing
+with frames as they arrive, or waiting until the remote peer has finished
+sending an entire message. This is entirely a matter of implementation choice,
+not a matter of protocol. By dealing with individual frames rather than waiting
+for entire messages, one can handle arbitrarily large messages and one might
+achieve a greater throughput via pipelining of I/O and processing. By dealing
+only with complete messages, one might achieve a significant simplification in
+message parsing and management. </t>
+
+<t hangText="Mode"> - Each wrapper instance associates a "mode" with each
+session. This mode is represented as an arbitrary string. It is simply a
+selection mechanism for deciding which of the configured profile
+implementations will be initialized and/or advertised in the greeting of that
+particular session. The initial mode is specified when the wrapper instance is
+created. A profile instance that initiates a tuning reset can specify the mode
+of the new session after the tuning reset completes and before the new greeting
+(if any) is sent. </t>
+
+<t hangText="Initiator vs. Listener Wrapper Instances"> - In the RFCs, the
+initiating session is the one that issues an active open on the underlying
+transport connection, while the listening session is the one that issues the
+passive open. In socket terms, the initiator calls "connect" while the listener
+calls "accept." Since initializing a wrapper involves passing in an
+already-connected socket, one must also pass in whether this is a listener or
+initiator wrapper. The application is responsible for opening the socket, so
+the wrapper itself cannot deduce this. Indeed, it might be different for two
+different sockets (and thus wrapper instances) within the same application. At
+the protocol level, the only real difference is the set of channel numbers that
+may appear within the &lt;start&gt; element. </t>
+
+<t hangText="Initiator vs. Listener Profile Implementations"> - On the other
+hand, the "initiator" and "listener" terms also apply to profile
+implementations. In this case, a "listener" profile is one whose URI is
+advertised in the greeting. An "initiator" profile is one that is initialized
+but is not advertised in the greeting. Either type of profile may accept
+&lt;start&gt; requests, and either type may initiate &lt;start&gt; requests.
+However, since a profile must be initialized before a channel can be started
+for that profile, a profile listed in a &lt;start&gt; request must be either an
+initiator or listener profile for the current mode. </t>
+
+<t hangText="Profile Registration"> - In the RFCs, a profile registration is a
+mechanism for reserving and advertising profiles via the IANA. In the context
+of the wrappers, a profile registration is a structure listing the URI and
+entry points (along with a few other items), informing the wrapper of which
+functions to invoke upon the occurrence of certain events. </t>
+
+</list>
+
+</section> <!-- Concepts -->
+

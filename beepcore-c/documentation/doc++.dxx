@@ -1,0 +1,148 @@
+/** @name beepcore-c
+
+<p>
+\URL[BEEP]{http://beepcore.org/} is a P2P application protocol framework
+for connection-oriented, asychonous interctions.
+BEEP permits simultaneous and independent exchanges within the context of a
+single application user-identity,
+supporting both textual and binary messages.
+
+You're looking at the home of the documentation for <b>beepcore-c</b>,
+which implements BEEP in C/C++.
+Useful links:
+<ul>
+<li><a href="http://beepcore.org/">BEEP community website</a> (highly recommended)</li>
+
+<li><a href="http://sourceforge.net/projects/beepcore-c">Sourceforge project page</a></li>
+
+<li><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/beepcore-c/beepcore-c/">CVS web interface</a></li>
+
+<li>How to get the source tree via CVS:<br><pre>
+    cvs -z3 \
+      -d:pserver:anonymous@cvs.beepcore-c.sourceforge.net:/cvsroot/beepcore-c \
+      login
+
+    cvs -z3 \
+      -d:pserver:anonymous@cvs.beepcore-c.sourceforge.net:/cvsroot/beepcore-c \
+      co beepcore-tcl
+</pre></li>
+
+<li>Mailing lists:
+<a href="http://lists.sourceforge.net/lists/listinfo/beepcore-c-announce">announcements</a>, 
+<a href="http://lists.sourceforge.net/lists/listinfo/beepcore-c-commits">cvs commits</a>, and
+<a href="http://lists.sourceforge.net/lists/listinfo/beepcore-c-users">users</a></li>
+
+<li>Documentation: <a href="docs.tgz">tgz file</a>, or
+<a href="docs.zip">zip file</a>.</li>
+</ul>
+
+First read the \URL[architectural overview]{Architecture.html},
+followed by the \URL[profile tutorial]{ProfileTutorial.html}.
+Then consult these source files:
+<ul>
+<li>\URL[profiles/null-profiles.h]{http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/beepcore-c/beepcore-c/profiles/null-profiles.h?rev=HEAD&content-type=text/vnd.viewcvs-markup}</li>
+<li>\URL[profiles/null-profiles.c]{http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/beepcore-c/beepcore-c/profiles/null-profiles.c?rev=HEAD&content-type=text/vnd.viewcvs-markup}</li>
+<li>\URL[threaded_os/examples/beepd.c]{http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/beepcore-c/beepcore-c/threaded_os/examples/beepd.c?rev=HEAD&content-type=text/vnd.viewcvs-markup}</li>
+<li>\URL[threaded_os/examples/beepng.c]{http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/beepcore-c/beepcore-c/threaded_os/examples/beepng.c?rev=HEAD&content-type=text/vnd.viewcvs-markup}</li>
+</ul>
+
+Because the <a href="ManualEntries.html">manual entries</a> are implicitly-based on the ordering of definitions in the source code,
+it may not intuitive to use the hierarchy it presents.
+So,
+we've provided both an
+<a href="index2.html">alphabetic index</a> of structures and functions,
+along with this perspective:
+<ul>
+<li>\URL[Library Initialization]{LibraryInitialization.html}</li>
+<li>Profile Module Management:</li>
+<ul>
+    <li>\URL[PROFILE_REGISTRATION structure]{PROFILE_REGISTRATION.html}</li>
+    <li>\URL[Functions]{Registrationstructureandfunctions.html}</li>
+</ul>
+<li>Connection Management:</li>
+<ul>
+    <li>\URL[BP_CONNECTION structure]{BP_CONNECTION.html}</li>
+    <li>\URL[General Functions]{ConnectionManagement.html}</li>
+    <ul>
+        <li>\URL[Convenience functions for TCP-based connections]{ConveniencefunctionsforTCP-basedconnections.html}</li>
+    </ul>
+</ul>
+<li>\URL[Session Management]{SessionManagement.html}</li>
+<li>Channel Management:</li>
+<ul>
+    <li>\URL[PROFILE_INSTANCE structure]{PROFILE_INSTANCE.html}</li>
+    <li>\URL[CHANNEL_INSTANCE structure]{CHANNEL_INSTANCE.html}</li>
+    <li>\URL[profile structure]{profile.html}</li>
+    <li>\URL[frame structure]{frame.html}</li>
+    <li>\URL[General Functions]{ChannelManagement.html}</li>
+    <li>\URL[Buffer Management]{BufferManagement.html}</li>
+    <li>\URL[Frame Management]{FrameManagement.html}</li>
+    <li>\URL[Tuning Profile Magic]{TuningProfileMagic.html}</li>
+</ul>
+<li>Diagnostic Management:</li>
+<ul>
+    <li>\URL[DIAGNOSTIC structure]{diagnostic.html}</li>
+    <li>\URL[Functions]{DiagnosticManagement.html}</li>
+</ul>
+<li>Utility Functions:</li>
+<ul>
+    <li>\URL[Configuration]{Configurationfunctions.html}</li>
+    <li>\URL[Logging]{Loggingfunctions.html}</li>
+    <li>\URL[Semaphores]{Semaphorestructureandfunctions.html}</li>
+    <li>\URL[Threads]{Threadstructureandfunctions.html}</li>
+</ul>
+<li>Profiles:</li>
+<ul>
+    <li>\URL[Tuning Parameters]{TuningParameters.html}</li>
+    <li>\URL[SASL ANONYMOUS and OTP]{TheSASLANONYMOUSandOTPprofiles.html}<br>
+<b>Note well:</b> the next major release of <b>beepcore-c</b> will remove
+support for the home-grown OTP profile &#151;
+instead, you'll need to use the Cyrus SASL profiles.
+Now would be a good time to familiarize yourself with
+\URL[Cyrus SASL]{ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/cyrus-sasl-2.1.0.tar.gz}.</li>
+    <li>\URL[Cyrus SASL]{CyrusSASLprofiles.html}</li>
+    <li>\URL[TLS]{TheTLSprofile.html}</li>
+    <li>\URL[NULL ECHO/SINK]{TheNULLECHOandNULLSINKprofiles.html}</li>
+    <li>\URL[SYSLOG reliable RAW]{TheSYSLOGreliableRAWprofile.html}</li>
+</ul>
+</ul>
+
+<!-- keep these here to avoid a bug in the index generator...
+
+{@link proreg_connection_init proreg_connection_init}
+{@link proreg_connection_fin proreg_connection_fin}
+{@link proreg_session_fin proreg_session_fin}
+{@link proreg_greeting_notification proreg_greeting_notification}
+  -->
+
+@memo <b>C/C++ BEEP project hosted on <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=32788" width="88" height="31" border="0" alt="SourceForge Logo"></a></b>
+ **/
+
+//@{
+
+/**
+ * @name Manual Entries
+ **/
+
+//@{
+    //@Include: ../threaded_os/wrapper/bp_wrapper.h
+    //@Include: ../threaded_os/utility/bp_config.h
+    //@Include: ../threaded_os/utility/logutil.h
+    //@Include: ../threaded_os/utility/semutex.h
+
+/**
+ * @name Supplied Entries
+ **/
+
+//@{
+    //@Include: ../profiles/tuning.h
+    //@Include: ../profiles/tls-profile.h
+    //@Include: ../profiles/null-profiles.h
+    //@Include: ../profiles/sasl-profiles.h
+    //@Include: ../profiles/cyrus-profiles.h
+    //@Include: ../profiles/syslog-raw.h
+//@}
+
+//@}
+
+//@}

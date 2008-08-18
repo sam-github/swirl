@@ -1,0 +1,122 @@
+#!/bin/sh
+#
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.invisible.net/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Id: cbeep-config,v 1.2 2001/08/21 23:10:25 mtr2 Exp $
+#
+if [ ! -z "${SRC_ROOT}" ]
+then
+    bhome=${SRC_ROOT}
+else
+    bhome=${PWD}/../..
+fi
+usage="\
+Usage cbeep-config [--version] [--libs] [--cflags] [--defines] [--beeplibs] [--syslibs]"
+
+
+#
+# Let's do some defines here which I think we need.
+#
+lib_system="-ldl -lnsl -lc"
+
+
+lib_genutil="-L${SRC_ROOT}/utility/unix -lbputil  -lbeepxmlutil -lxmlglobal"
+lib_beepcore="-L${SRC_ROOT}/core/unix -lbeepcore"
+lib_tosutil="-L${SRC_ROOT}/threaded_os/utility/unix -lbptosutil"
+lib_tostrans="-L${SRC_ROOT}/threaded_os/transport/unix -lbptostransport"
+lib_toswrap="-L${SRC_ROOT}/threaded_os/wrapper/unix -lbptoswrapper"
+
+#
+#
+#
+
+if test $# -eq 0; then
+   echo "${usage}" 1>&2
+   exit 1
+fi
+
+osdefs=""
+case "`uname`" in 
+    SunOS)
+        oslibs="-lthread -lsocket"
+        osdefs="-DSUNOS"
+	;;
+    Linux)
+	oslibs="-lrt -lpthread"
+        osdefs="-DLINUX"
+	;;
+esac
+
+
+while test $# -gt 0; do
+   case "$1" in
+   -*=*) optarg=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+   *) optarg= ;;
+   esac
+
+   case $1 in
+      --version)
+      echo 1.0
+      ;;
+      --cflags)
+      echo -I$bhome/include 
+      ;;
+      --sslcflags)
+      for i in /usr/include/openssl /usr/local/ssl/include /iw/openssl/current/include
+      do
+	if [ -d $i ]
+	then
+          echo -I$i
+	  break
+	fi
+      done
+#      echo -I/iw/home/wmills/depot/openSource/openssl-0.9.4/include 
+      ;;
+      --sslclibflags)
+      for i in /usr/lib /usr/local/lib /iw/home/markr/depot/Debug/openssl/0.9.4/lib  /iw/openssl/current/lib
+      do
+	if [ -f $i/libssl.so ]
+	then
+          echo -L$i
+	  break
+	fi
+      done
+      ;;
+      --defines)
+      defines=$osdefs
+      echo $defines
+      ;;
+      --syslibs)
+      libdir=-L$bhome/lib
+      echo  $libdir $lib_system $oslibs 
+      ;;
+      --beeplibs)
+#      libdir="-L${SRC_ROOT}/utility/unix -L${SRC_ROOT}/threaded_os/transport/unix -L${SRC_ROOT}/core/unix -L${SRC_ROOT}/threaded_os/wrapper/unix"
+#      echo  $libdir -lbputil -lbptosutil -lbeepcore -lbeepxmlutil -lxmlglobal -lbptostransport -lbptoswrapper
+      echo  $lib_genutil $lib_tosutil $lib_tostrans $lib_toswrap $lib_beepcore
+      ;;
+      --libs)
+#      libdir=-L$bhome/lib
+#      echo  $libdir $oslibs -lrt -lpthread -lnsl -lbputil -lbptosutil -lbeepcore -lbeepxmlutil -lxmlglobal -lbptostransport -lbptoswrapper -lc
+      echo $libdir $oslibs $lib_genutil $lib_tosutil $lib_tostrans $lib_toswrap $lib_beepcore
+      ;;
+      *)
+      echo "${usage}" 1>&2
+      exit 1
+      ;;
+   esac
+   shift
+done
+

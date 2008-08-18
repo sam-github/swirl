@@ -1,0 +1,98 @@
+Microsoft Developer Studio Workspace File, Format Version 6.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "beepcore"=".\wrapper\win32\beepcore.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "beepd"=".\EXAMPLES\WIN32\beepd.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name beepcore
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name null_profiles
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "beepng"=".\EXAMPLES\WIN32\beepng.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name beepcore
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name null_profiles
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name tls_profile
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "null_profiles"="..\PROFILES\WIN32\null_profiles.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name beepcore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "tls_profile"="..\profiles\win32\tls_profile.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name beepcore
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

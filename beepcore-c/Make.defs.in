@@ -1,0 +1,98 @@
+#
+# Copyright (c) 2001 Invisible Worlds, Inc.  All rights reserved.
+# 
+# The contents of this file are subject to the Blocks Public License (the
+# "License"); You may not use this file except in compliance with the License.
+# 
+# You may obtain a copy of the License at http://www.beepcore.org/
+# 
+# Software distributed under the License is distributed on an "AS IS" basis,
+# WITHOUT WARRANTY OF ANY KIND, either express or implied.  See the License
+# for the specific language governing rights and limitations under the
+# License.
+#
+#
+# $Id: Make.defs.in,v 1.6 2002/01/04 07:07:03 mrose Exp $
+#
+# This file contains all information needed to bootstrap the system
+#
+# 1. C compiler
+# test libe
+_CC = @CC@
+CFLAGS = -pipe -Wall
+
+# WARNING! NOT ALL MAKEFILES LOOK AT THE CFLAGS FROM HERE
+
+ifndef LIBTOOL
+    export LIBTOOL = $(SRC_ROOT)/libtool
+    export CCLIBTOOL = $(LIBTOOL) --mode=compile
+    export LDLIBTOOL = $(LIBTOOL) --mode=link
+endif
+
+TARGET_LIBS=		@TARGET_LIBS@
+TARGET_DEFINES=		@TARGET_DEFINES@
+
+SSL_INCLUDES=		@SSL_INCLUDES@
+SSL_LIBS=		@SSL_LIBS@
+
+CYRUS_DEFINES=		@CYRUS_DEFINES@
+CYRUS_INCLUDES=		@CYRUS_INCLUDES@
+CYRUS_LIBS=		@CYRUS_LIBS@
+CYRUS_SOBJ=		@CYRUS_SOBJ@
+CYRUS_SLIB=		@CYRUS_SLIB@
+CYRUS_NONE=		@CYRUS_NONE@
+SASLP_SLIB=		@SASLP_SLIB@
+
+OPT_CFLAGS=		@OPT_CFLAGS@
+DEBUG_CFLAGS=		@DEBUG_CFLAGS@
+
+SYSLIBS=		$(TARGET_LIBS)
+
+genutil_dir=		$(SRC_ROOT)/utility/unix
+lib_genutil=		$(genutil_dir)/libbputil.la  \
+			$(genutil_dir)/libbeepxmlutil.la \
+			$(genutil_dir)/libxmlglobal.la
+lib_beepcore=		$(SRC_ROOT)/core/unix/libbeepcore.la
+lib_tosutil=		$(SRC_ROOT)/threaded_os/utility/unix/libbptosutil.la
+lib_tostrans=		$(SRC_ROOT)/threaded_os/transport/unix/libbptostransport.la
+lib_toswrap=		$(SRC_ROOT)/threaded_os/wrapper/unix/libbptoswrapper.la
+
+BEEPLIBS=		$(lib_genutil) $(lib_tosutil) $(lib_tostrans) $(lib_toswrap) $(lib_beepcore)
+
+ALL_DEFINES=		$(TARGET_DEFINES)
+ALL_CFLAGS=		$(OPT_CFLAGS) $(DEBUG_CFLAGS) $(CFLAGS) $(MF_CFLAGS)
+
+LIB_VERSION=		1:0:1
+
+# 2. Root of distribution tree
+
+ifdef DEBUG
+    DIST_ROOT = $(SRC_ROOT)/Debug
+    ifdef PURIFY
+        CC = purify -best-effort $(_CC)
+    endif
+    CFLAGS = -g
+else
+    DIST_ROOT = $(SRC_ROOT)/Release
+    CC = $(_CC)
+endif
+
+PLATFORM = unix
+LIB_INSTALL_DIR= $(DIST_ROOT)/lib
+
+# 3. Default target sequence for make
+
+MAKE_TGT = all 
+
+# 4. Set up some dependency info.
+
+%.lo: %.c
+	$(CCLIBTOOL) $(CC) $(ALL_DEFINES) $(ALL_CFLAGS) $(ALL_CPPFLAGS) -c $<
+
+LIBTOOL_LDFLAGS=	-rpath $(LIB_INSTALL_DIR) -version-info $(LIB_VERSION)
+
+INSTALLBIN = $(LIBTOOL) $(SRC_ROOT)/install.sh -c -m 755
+INSTALLDAT = $(SRC_ROOT)/install.sh -c -m 644
+INSTALLDIR = mkdir -m 755 -p
+INSTALLLIB = $(INSTALLBIN)
+INSTALLFINISH = $(LIBTOOL) --finish

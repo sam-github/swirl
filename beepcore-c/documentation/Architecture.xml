@@ -1,0 +1,453 @@
+<?xml version="1.0"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<?rfc compact="yes"?>
+<?rfc emoticonic="yes"?>
+<?rfc private=" "?>
+<?rfc toc="yes"?>
+
+<rfc>
+
+<front> 
+<title abbrev="Architecture">
+The BEEPCORE-C Architecture
+</title>
+
+<author initials="D." surname="New" fullname="Darren New">
+<organization/>
+
+<address>
+<postal>
+<street>5390 Caminito Exquisito</street>
+<city>San Diego</city>
+<region>CA</region>
+<code>92130</code>
+<country>US</country>
+</postal>
+
+<phone>+1 858 350 9733</phone>
+<email>dnew@san.rr.com</email>
+</address>
+</author>
+
+<date month="November" year="2001"/>
+</front>
+
+<middle>
+
+<section title="Introduction">
+
+<t>This memo documents the architecture of the C BEEPCORE
+ libraries. It is intended to be read in conjunction with the Profile
+ Tutorial and the |'doc++| documentation.
+ Where particular implementation choices are mentioned, they refer to the implementation choices of the current implementation, with generalizations naturally possible. </t>
+
+</section> <!-- Introduction -->
+
+<?rfc include='IncludeGlossary' ?>
+
+<?rfc include='IncludeConcepts' ?>
+
+<section title="The Parts">
+
+<t> The library is broken into a number of layers. There are four major parts
+of any C-BEEPCORE based application that intercommunicate to form a server or
+client. A brief (and imprecise) description of each follows: </t>
+
+<list style="hanging">
+
+<t hangText="Core Library"> - The core library is written in pure portable C.
+It invokes no operating system services on its own. It does no memory
+allocation or I/O on its own. It is responsible for parsing incoming frames,
+formatting outgoing frames, tracking open channels, generating and responding
+to SEQ frames, and in general all the stuff that every RFC3080 and RFC3081
+implementation will need to do. It is not expected that the authors of profiles
+will use the core library directly. Instead, they will always use a wrapper.
+</t>
+
+<t hangText="Wrapper"> - The wrapper is a piece of code that "wraps around" the
+core library. It provides for synchronization, I/O, memory allocation, mapping
+of URIs in &lt;start&gt; requests to code in the application, thread
+management, and so on. All access by profile implementations to the BEEP
+functionality will be via a wrapper. </t>
+
+<t hangText="Profile Implementations"> - The "meat and potatos" of the system
+is of course the profile implementations. Profile implementations are pieces of
+code that implement profiles. They are registered with a wrapper and invoked by
+the application and the wrapper. They are responsible for generating and
+responding to individual messages over channels. </t>
+
+<t hangText="Application"> - Finally, the application that puts it all
+together. The application is responsible for parsing any configuration files,
+creating sockets, loading any dynamically-loaded profile implementations,
+registering profile implementations with wrappers, and starting the wrapper.
+It's also responsible for cleaning up after the wrapper has finished its work,
+closing sockets and so on. </t>
+
+</list>
+
+<t> It is important to note that profiles and applications access only the
+wrapper code, and the wrapper code regulates all access to the core code. </t>
+
+<t> Of course, there is the difference between code and process, which is
+glossed over here. That is, while there is likely only one wrapper (i.e., one
+piece of code), there may be many wrapper instances active at once, each
+serving a particular socket. While there is likely only one implementation of
+each profile, there will be one instantiation of each profile for each channel
+running that profile. A single application might be running in multiple
+processes. And finally, the core library can create session structures to track
+various BEEP sessions in a single process. </t>
+
+</section> <!-- The Parts -->
+
+<section title="The Organization">
+
+<t> The system is broken up into four general pieces: the application layer,
+the wrapper, the core library, and profiles: </t>
+
+<!-- 
+<figure> <preamble>
+<t> The overall structure: </t> </preamble>
+<artwork src="Arch1.gif" /> </figure>
+-->
+
+<figure> <preamble>
+<t> The overall structure: </t> </preamble>
+<artwork><![CDATA[
+                               socket
+                                 ||
++--------------------------------||-------------------------------+
+|                                ||                               |
+| application                    ||                               |
+|                                ||                               |
+|    +---------------------------||--------------------------+    |
+|    |                           ||                          |    |
+|    | wrapper                   ||                          |    |
+|    |               +-----------||---------------------+    |    |
+|    |               |                                  |    |    |   
+|    |               | Beepcore library                 |    |    |   
+|    |               |                                  |    |    |   
+|    |               |                                  |    |    |   
+|    |               |                                  |    |    |   
+|    |               +--------------|-------------------+    |    |
+|    |                              |                        |    | 
+|    |      ------------------------|-------                 |    |
+|    |     /          |          |          \                |    |
+|    |  =======    =======    =======    =======  profile    |    |
+|    |  |     |    |     |    |     |    |     |  instances  |    |
+|    |  =======    =======    =======    =======             |    |
+|    |     |          |          |          |                |    |
+|    +-----|----------|----------|----------|----------------+    |
+|          |          /          |          |                     |
+|          |---------/           |          |                     |
+|          |                     |          |                     |
+|      +---|---+              +--|--+    +--|--+                  |
+|      |       |              |     |    |     |                  |
+|      |       |              |     |    |     |                  |
+|      |       |              |     |    |     |                  |
+|      +-------+              +-----+    +-----+                  |
+|                                                                 |
+|    profile implementations                                      |
+|                                                                 |
++-----------------------------------------------------------------+
+]]></artwork></figure>
+
+<t> The reason for splitting the profile implementations off as separate chunks
+of code should be pretty obvious. The design of the BEEP protocol is to allow
+exactly this sort of thing. Splitting the profile code from the rest of the
+code allows for new profiles to be developed after the library has been
+finished. </t>
+
+<t> The reason for separating the wrapper from the application is to avoid
+making decisions in the wrapper about finding profile implementations,
+configuration, and so on. It also allows the wrapper to be used for both
+initiators and listeners without change. If Invisible Worlds supplied the
+main() routine, the configuration would be so complex as to be unmanagable.
+Instead, the developer of an application is responsible for configuration. The
+developer is also responsible when coding initiators for starting the
+appropriate channels with the appropriate start data. The application also decides whether to run one session per process or multiple sessions per process. </t>
+
+<t> Finally, the reason for separating the core library from the wrapper is to
+allow the core library to be reused in places where the wrapper might not be
+portable. For example, the core library could be used as part of an Apache
+module, embedded in a BEEP-enabled PDA, or used in a test and performance
+harness. Each of these applications would require a new wrapper, but all could
+use the same core library. In addition, a new wrapper is likely necessary for
+various operating systems, while the same core library will serve all operating
+systems, including those without threads. </t>
+
+<t> As can be seen above, the application is naturally the outermost structure.
+It is responsible for creating the socket, loading the profile implementations,
+instantiating a wrapper, and registering the profile implementations with the
+wrapper. It manages the creation and destruction of sockets and wrappers. In an initiating application, it is also responsible for starting the channels once greetings are exchanged. </t>
+
+</section> <!-- The Organization -->
+
+<section title="Design Decisions">
+
+<t> The most obvious design decision was the overall architecture of the system, as described previously: the separation of wrapper from core, and of application from wrapper. </t>
+
+<section title="The Core Library">
+
+<t> The core library (CBEEP.c) was designed with a number of goals in mind.  It
+does not rely on any operating system services except where absolutely
+necessary. In particular, it does not rely on threads, I/O, or memory
+allocation. All these services are provided by the wrapper. While it uses a few
+routines from string.h and such, in theory the core library could be written
+entirely in C with no other libraries or OS services linked in. </t>
+
+<t> The core is not "active". The only time the library does anything is when
+the wrapper calls it. For example, all parsing of frame headers takes place as
+the wrapper copies the bytes into the library. All management of internal
+channel structures occurs when the wrapper asks to dequeue a frame from channel
+zero. The selection of which frame to send next and the generation of SEQ
+messages occurs when the wrapper asks if any bytes are available to be written
+to the socket. Notifications are issued as part of dealing with other calls.
+For example, notifying the wrapper that a full frame has arrived is handled
+during the call that gives the bytes from the socket to the library.  </t>
+
+<t> In addition, the core library does not deal with profiles at all. It deals
+with channels and URIs, but the actual concept of a "profile" as such is not
+necessary. Hence, it is the wrapper's responsibility to map channels and URIs
+to profiles. </t>
+
+<t> The core library itself is only serially reentrant for any given session
+instance. That is, if one thread is running within one of the blu_* or bll_*
+routines, no other thread should enter any of those routines passing a
+reference to the same session. On the other hand, since all global data is
+stored in session structures, multiple sessions can be in progress at the same
+time in a reentrant way. </t>
+
+<t> The core library is designed with efficiency in mind. Frames are expected
+to be read from the socket directly into the memory that is passed to the
+profile, and written directly from the memory the profile fills in. </t>
+
+<t> Internally, the core library stores all state information in a session
+structure or a structure pointed to therefrom. There are a few input and output
+buffers allocatated to the session (head_buf, read_buf, seq_buf), and each
+session maintains a pointer to a frame being read (read_frame). It also holds
+the greeting from the other peer. Finally, each session structure points to a
+table of channel structures, one for each open channel (including channel
+zero), currently organized as a linked list sorted by priority. Of course,
+general session state is maintained also. </t>
+
+<t> Each channel, in turn, holds an ordered list of incoming frames, an ordered
+list of outgoing frames, a "committed" frame which is the next to be sent or in
+the process of being sent on this channel, an ordered list of received messages
+that have not been fully answered, and an ordered list of sent messages that
+have not been fully answered. The channel structure also holds all the other
+state necessary to make things work. </t>
+
+<section title="Protocol Enforcement">
+
+<t> The core library enforces many aspects of the BEEP protocol. It refuses to
+accept frames beyond the valid sequence range. It refuses to send frames out of
+order. It refuses to send a reply to a message number that has not been
+received. Etc. However, there is one condition that is not enforced by the core
+library. In particular, if a close request for a channel is queued on channel
+zero, it is possible that request will be sent over the socket before all the
+messages already queued for the channel being closed have been sent. It is up
+to the wrapper to prevent this by delaying the close request until the channel
+is quiescent. </t>
+
+</section> <!-- Protocol Enforcement -->
+
+<section title="Memory Management">
+
+<t> As part of the design of the core library, memory usage can be limited.
+When instantiating a wrapper or a session, a pointer to a malloc-like function
+and a free-like function is provided by the application. However, it is not the
+intent that these be used to limit memory usage, particularly since there is no
+convenient way of telling which wrapper or session is allocating the memory.
+Instead, the per-channel and per-wrapper limits should be set. </t>
+
+<t> The per-channel memory limit is the "receive window." Peers are not
+permitted to send more payload than will fit in the window at one time. After
+frames that have been received have been passed to bpc_frame_destroy, a SEQ is
+sent to allow the peer to send more. This limit keeps the peer from filling up
+local memory if the local profile stops reading the channel for any reason.
+</t>
+
+<t> The per-wrapper limit is a single limit for all frame allocations made with
+bpc_buffer_allocate or bpc_frame_aggregate. It is an arbitrary limit, enforced
+only if set. It is essentially the sender side of the receive window limit. It
+prevents the local machine from filling up all of memory if the remote peer
+stops reading the channel for any reason. </t>
+
+</section> <!-- Memory Management -->
+
+</section> <!-- The Core Library -->
+
+<section title="The Wrapper Library">
+
+<t> In contrast to the core library, the wrapper library is designed to be very
+active and asynchronous. It mediates between the core library and the rest of
+the application and profiles. It starts multiple threads when multiple channels
+are open. It invokes callbacks on profiles, and expects the profiles to answer
+these callbacks. </t>
+
+<t> Other wrappers might take an entirely different approach to threading and
+timing and configuration. For example, a wrapper designed to be used as an
+Apache module might use the Apache interface to threading and configuration.
+We do not discuss these possiblities further here. </t>
+
+<t> In general, a profile is described by a profile registration structure.
+That structure describes when the profile implementation should be active and
+how the wrapper should invoke the profile implementation. The functions that
+the wrapper calls all start with "pro_" for "profile." The functions that the
+profile invokes start with "bp_" or "bpc_",
+for "BEEP library wrapper" or "BEEP library wrapper, channel-specific",
+respectively.</t>
+
+<t> The library uses some OSI reference model terminology. In particular, it
+uses the terms "request", "indication", "response", and "confirmation" in a
+precise way.  Generally, either an application or a profile will invoke a
+request, such as a request to start a channel. The peer will receive this
+request as an indication, and reply with a response. The originator of the
+request will receive the answer as a confirmation. Hence, all b*_ functions
+that cause protocol actions cause requests or responses. Also, all pro_
+functions that cause protocol actions are indications or confirmations.</t>
+
+<t> Technically, the pro_ functions implemented by the profile are intended to
+return immediately without blocking. However, there is an extra threading layer
+provided by the wrapper, so with the appropriate set-up, profile
+implementations don't need to worry about blocking. They still must, however,
+ensure that every indication is answered with a response, for example. </t>
+
+<t> The wrapper is designed to allow a profile to easily interact with its
+peer. Interacting with multiple peers requires multiple profile instances and
+more sophisticated programming technique to link them together. For example, a
+profile implementing a multi-user game would need to implement some sort of
+shared data structure to allow the profile instance associated with each player
+to affect the other profile instances on other wrappers. That is, each "player"
+could easily affect the "world," but the application would have to arrange for
+the changes to the "world" to be distributed back out to all "players." </t>
+
+</section> <!-- The Wrapper Library -->
+
+<section title="The Application Layer">
+
+<t> Each application will have its own application layer. A couple of simple
+application layers are provided, but more complex applications need to be coded
+to cooperate with the profiles they support. </t>
+
+<t> The application is responsible for loading configuration, loading profiles,
+creating a connected socket (via connect or accept), instantiating a wrapper
+for that socket, and cleaning up when the wrapper is finished. An initiating
+application is also responsible for starting any required channels, while a
+listening application can usually rely on the initiator to trigger any actions
+it needs to take. </t>
+
+<t> The applications that come with the wrapper and core libraries follow a simple operation: </t>
+
+<list style="symbols">
+<t>Typically a configuration file is read that specifies:
+<list style="symbols">
+<t>Profiles that are dynamically-loaded.</t>
+
+<t>Transport information such as server name and port number.</t>
+</list></t>
+
+<t>They call a library routine that loads the profiles and invokes
+the _init entry point of each profile so loaded,
+building a list of all registrations returned thereby. </t> 
+
+<t>The listener mode sets up a listening socket and accepts
+connections;
+in contrast,
+the initiator mode attempts to connect to the server at the port provided. </t>
+
+<t>Once the connection is established, the listener forks and instantiates a
+wrapper in the "plaintext" mode;
+in contrast,
+the initiator does not fork,
+but simply instantiates a wrapper in the "plaintext" mode. </t>
+
+<t>Within the application layer that comes with the library, individual
+initiating profiles are responsible for establishing connections. 
+Typically,
+each profile will expose additional entry points
+(other than _init)
+for this purpose.</t>
+</list>
+
+<t> The code for a very simple forking server (listener) might look like this: </t>
+<figure><artwork>
+  Read configuration file
+  Load configured profile implementations
+  Create a listening socket
+  loop:
+    Accept a connection
+    Fork
+    if child:
+      Instantiate a wrapper
+      Register all the profiles
+      Start the wrapper
+      Wait for the wrapper to complete
+      Check and handle the wrapper status
+      Destroy the wrapper
+      Close the socket
+      Exit
+</artwork></figure>
+
+<t> The code for a very simple initiator might look like this: </t>
+
+<figure><artwork>
+  Read configuration file
+  Load configured profile implementations
+  Connect to configured address
+  Instantiate a wrapper
+  Register all the profiles
+  Start the wrapper
+  Invoke profile-specific entry points  
+  Wait for the wrapper to complete
+  Check and handle the wrapper status
+  Destroy the wrapper
+  Close the socket
+  Exit
+</artwork></figure>
+</section> <!-- The Application -->
+
+</section> <!-- Design Decisions -->
+
+</middle>
+
+<back>
+
+<section title="Copyright and License">
+
+<t>Blocks Public License
+<vspace blankLines='0' />
+Copyright (c) 2000, Invisible Worlds, Inc. 
+<vspace blankLines='0' />
+All rights reserved.</t>
+
+<t>Redistribution and use in source and binary forms, with or without 
+modification, are permitted provided that the following conditions are met: 
+<list style='symbols'>
+<t>Redistributions of source code must retain the above copyright notice, 
+  this list of conditions and the following disclaimer.</t>
+
+<t>Redistributions in binary form must reproduce the above copyright notice, 
+  this list of conditions and the following disclaimer in the documentation 
+  and/or other materials provided with the distribution.</t>
+
+<t>Neither the name, trademarks, or tradenames of Invisible Worlds, Inc., nor 
+  the names, trademarks, or tradenames of its contributors may be used to 
+  endorse or promote products derived from this software without specific 
+  prior written permission.</t>
+</list>
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' 
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
+DISCLAIMED. IN NO EVENT SHALL INVISIBLE WORLDS OR CONTRIBUTORS BE LIABLE FOR 
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES 
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND 
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</t>
+</section>
+</back>
+</rfc>
+

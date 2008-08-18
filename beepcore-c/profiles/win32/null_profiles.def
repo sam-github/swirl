@@ -1,0 +1,8 @@
+LIBRARY   NULL-PROFILES
+DESCRIPTION "NULL profile implementation"
+EXPORTS
+   null_echo_Init
+   null_sink_Init
+   null_start
+   null_trip
+   null_close

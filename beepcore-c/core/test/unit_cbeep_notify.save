@@ -1,0 +1,53 @@
+Starting...
+Notify upper: 0, 3
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+FIRST CALL
+Notify upper: 0, 3
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+
+AFTER 208 OCTETS:
+
+AFTER 223 OCTETS:
+GREETING SENT - SHOULD HAVE SEEN notify_upper 0,3
+Notify upper: 0, 1
+Notify upper: 0, 2
+GREETING ANSWER QUEUED
+NEXT, TWO NOTIFIES AS I READ IT
+Notify upper: 0, 4
+Notify upper: 0, 5
+GREETING ANSWER COMPLETE - SHOULD HAVE SEEN 2 NOTIFY_UPPERS
+Notify upper: 0, 3
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+Notify upper: 0, 3
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+Notify upper: 0, 3
+TWO MESSAGES SENT
+Notify upper: 0, 1
+Notify upper: 0, 2
+Notify upper: 0, 1
+Notify upper: 0, 2
+Notify upper: 0, 1
+Notify upper: 0, 2
+THREE MESSSAGES IN
+NOW READING THREE MESSAGES
+ONE
+THREE
+Notify upper: 0, 4
+TWO
+REPLY TO MESSAGE #29...
+Notify upper: 0, 3
+Notify lower: 3
+  text: >>NULL<<
+  chan: -1
+REPLY SENT. NOW DRAINING...
+Notify upper: 0, 3
+Notify upper: 0, 5
+ALL DONE!
