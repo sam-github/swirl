@@ -1419,7 +1419,7 @@ void bll_out_count(struct session * s, size_t octet_count) {
     if (octet_count < s->out_buffer.iovec[0].iov_len) {
       /* Did not write entire first buffer */
       s->out_buffer.iovec[0].iov_len -= octet_count;
-      ((char*)s->out_buffer.iovec[0].iov_base) += octet_count;
+      (s->out_buffer.iovec[0].iov_base) = ((char*)s->out_buffer.iovec[0].iov_base) + octet_count;
       octet_count = 0;
     } else {
       octet_count -= s->out_buffer.iovec[0].iov_len;
@@ -1461,7 +1461,7 @@ void bll_in_count(struct session * s, size_t size) {
   char * nl;
 
   PRE(size <= s->in_buffer.iovec[0].iov_len);
-  ((char*)s->in_buffer.iovec[0].iov_base) += size;
+  (s->in_buffer.iovec[0].iov_base) = (s->in_buffer.iovec[0].iov_base) + size;
   s->in_buffer.iovec[0].iov_len -= size;
   ((char*)(s->in_buffer.iovec[0].iov_base))[0] = '\0';
 
