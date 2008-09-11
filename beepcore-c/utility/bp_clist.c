@@ -45,7 +45,7 @@ struct bp_clistitem {
 extern struct bp_clist* bp_clist_new(void) {
     struct bp_clist* new;
 
-    if (new = lib_malloc(sizeof(struct bp_clist))) {
+    if ((new = lib_malloc(sizeof(struct bp_clist)))) {
 	memset(new, 0, sizeof(struct bp_clist));
     }
     return new;
