@@ -98,7 +98,7 @@ static char * fmt_greeting(struct session * s, char * * profiles,
   PRE(profiles != NULL);
 
   /* First figure out how big it will be, or a little bigger. */
-  size = 0;
+  size = 1; // for the trailing null
   size += strlen(greet_head_1);
   if (features && *features) {
     size += strlen(greet_head_2) + strlen(features);
