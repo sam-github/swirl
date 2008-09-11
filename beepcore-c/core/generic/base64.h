@@ -39,7 +39,7 @@
  * the size of the input and the size of the payload from the 
  * encoded string.
  */
-extern int base64_dsize(unsigned char * encoded) ;
+extern int base64_dsize(char * encoded) ;
 extern int base64_esize(int size);
 
 /*
@@ -54,11 +54,10 @@ extern int base64_esize(int size);
  *    Assumes that you have allocates a buffer as a destination of the
  *    correct size.  If this is not the case you will probably SEGV.
  */
-extern unsigned char * base64_encode(struct session * sesion, unsigned char * raw, int size);
-extern unsigned char * base64_encode_into(unsigned char * raw, int size, unsigned char * output);
-extern int base64_decode(struct session * sesion, unsigned char * encoded, unsigned char ** raw);
-extern int base64_decode_into(struct session * session, unsigned char * encoded, unsigned
-char * raw);
+extern char * base64_encode(struct session * sesion, char * raw, int size);
+extern char * base64_encode_into(char * raw, int size, unsigned char * output);
+extern int base64_decode(struct session * sesion, char * encoded, char ** raw);
+extern int base64_decode_into(struct session * session, char * encoded, char * raw);
 
 #define BASE64_LINELEN   76
 

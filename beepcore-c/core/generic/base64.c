@@ -112,7 +112,8 @@ int base64_esize(int size) {
  * Returns:
  *    int                       Size of the decoded data. 
  */
-int base64_dsize(unsigned char * encoded) {
+int base64_dsize(char * _encoded) {
+  unsigned char* encoded = (unsigned char*) _encoded;
   int i, length, trailers;
 
   ASSERT(sizeof(long) * 8 >= 32);
@@ -160,7 +161,7 @@ int base64_dsize(unsigned char * encoded) {
  * Returns:
  *    char *                    Null terminated string. NULL if alloc fails.
  */
-unsigned char * base64_encode_worker(struct session * session, unsigned char * raw, int size, unsigned char * output) {
+char * base64_encode_worker(struct session * session, unsigned char * raw, int size, unsigned char * output) {
 
   long codesize, i, x, codeidx, looplimit;
   unsigned long shifter;
@@ -226,15 +227,15 @@ unsigned char * base64_encode_worker(struct session * session, unsigned char * r
     coded[codeidx] = encode_vec[shifter & 0x3f];
   }
 
-  return(coded);
+  return (char*)(coded);
 }
 
-unsigned char * base64_encode(struct session * session, unsigned char * raw, int size) {
-    return base64_encode_worker(session, raw, size, NULL);
+char * base64_encode(struct session * session, char * raw, int size) {
+    return base64_encode_worker(session, (unsigned char*) raw, size, NULL);
 }
 
-unsigned char * base64_encode_into(unsigned char * raw, int size, unsigned char * output) {
-    return base64_encode_worker(NULL, raw, size, output);
+char * base64_encode_into(char * raw, int size, unsigned char * output) {
+    return base64_encode_worker(NULL, (unsigned char*) raw, size, output);
 }
 
 /*
@@ -334,11 +335,11 @@ int base64_decode_worker(struct session * session, unsigned char * encoded, unsi
 }
 
 
-int base64_decode(struct session * session, unsigned char * encoded, unsigned char ** raw) {  
-  return(base64_decode_worker(session, encoded, raw, 1));
+int base64_decode(struct session * session, char * encoded, char ** raw) {  
+  return(base64_decode_worker(session, (unsigned char*) encoded, (unsigned char**) raw, 1));
 }
 
-int base64_decode_into(struct session * session, unsigned char * encoded, unsigned char * raw) {
-  return(base64_decode_worker(session, encoded, &raw, 0));
+int base64_decode_into(struct session * session, char * encoded, char * raw) {
+  return(base64_decode_worker(session, (unsigned char*) encoded, (unsigned char**) &raw, 0));
 }
 
