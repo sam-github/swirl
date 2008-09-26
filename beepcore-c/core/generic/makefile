@@ -4,8 +4,7 @@ LDFLAGS=-g
 C=$(wildcard *.c ../../utility/*.c)
 O=$(C:.c=.o)
 
-do: ex
-	#./ex
+libbeepcore.a: $(O)
+	$(AR) -r $@ $^
 
-ex: $O
 
