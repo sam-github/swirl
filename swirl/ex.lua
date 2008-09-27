@@ -6,6 +6,21 @@ local function q(t)
   return serialize(t)
 end
 
+function create(il, profile)
+  local function notify_lower(c, op) print("cb lower", c, op) end
+  local function notify_upper(c, chno, op) print("cb upper", c, chno, op) end
+
+  local core = swirl.core(
+    notify_lower,
+    notify_upper,
+    il,
+    nil, -- features
+    nil, -- localize
+    profile or {}
+    )
+
+  return core
+end
 
 function pull(c)
   local b = c:pull()
@@ -52,8 +67,10 @@ function chan0_read(c)
   return f
 end
 
-i = swirl.core("I")
-l = swirl.core("L")
+print"session establishment..."
+
+i = create("I")
+l = create("L")
 
 print("I="..tostring(i))
 print("L="..tostring(l))
@@ -78,6 +95,17 @@ fl:destroy()
 
 dolower(i,l)
 
+print"channel start..."
+
+chno = i:chan_start({{uri="http://example.org/beep/echo"}}, "beep.example.com")
+
+print("chno="..chno)
+
+dolower(i,l)
+
+fl = chan0_read(l)
+
+-- test gc order
 print"no gc"
 
 i = nil

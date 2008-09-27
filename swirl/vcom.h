@@ -3,7 +3,6 @@
 
 #define BSTR(x) ((x) ? 't' : 'f')
 
-#if 0
 static void v_debug(const char* fmt, ...)
 {
   va_list ap;
@@ -14,7 +13,6 @@ static void v_debug(const char* fmt, ...)
   fprintf(stdout, "\n");
   va_end(ap);
 }
-#endif
 
 static void v_debug_stack(lua_State* L)
 {
@@ -41,7 +39,6 @@ static void v_debug_stack(lua_State* L)
   printf("\n");
 }
 
-#if 0
 /* traceback is passed to v_pcall */
 static int v_traceback (lua_State *L) {
   lua_getfield(L, LUA_GLOBALSINDEX, "debug");
@@ -89,6 +86,7 @@ static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
   return err;
 }
 
+#if 0
 /* Support for registering (non-profile-based) callbacks. */
 struct OnCb {
   lua_State* L;
@@ -251,4 +249,18 @@ void v_pushstringornil(lua_State* L, const char* s)
   else
     lua_pushnil(L);
 }
+
+void v_pushweaktable(lua_State* L, const char* mode)
+{
+  int n = lua_gettop(L);
+
+  lua_newtable(L);
+  lua_newtable(L);
+  lua_pushstring(L, mode);
+  lua_setfield(L, -2, "__mode");
+  lua_setmetatable(L, -2);
+
+  assert(lua_gettop(L) == n+1);
+}
+
 

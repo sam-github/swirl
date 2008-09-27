@@ -360,31 +360,106 @@ struct Core
 {
   struct session* s;
 
-  /* Notifications? */
+  lua_State* L;
+  int ref; // ref to session userdata's fenv - it has weak values, and has the userdata
+  // in it using the session C ptr's lightuserdata
 };
 
 typedef struct Core* Core;
 
-static void notify_lower_cb(struct session* s, int o)
+static lua_State* core_get_cb(struct session* s, const char* name)
 {
-  static const char* print[] = { NULL, "bll_status", "bll_in_buffer", "bll_out_buffer" };
-  printf("%p notify_lower %d=%s status=%d\n", s, o, print[o], bll_status(s));
+  Core c = blu_session_info_get(s);
+  lua_State* L = c->L;
+  int top = lua_gettop(L);
+
+  // This happens during creation, when notify callbacks are called with a
+  // session*, but we've never seen it, so it doesn't have the session pointer
+  // initialized... callbacks shouldn't happen until AFTER the ctx is created!
+  if(!c->s)
+    return NULL;
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, c->ref);
+
+  lua_getfield(L, -1, name);
+  lua_insert(L, top+1);
+
+  lua_getfield(L, -1, "weak");
+  lua_getfield(L, -1, "session");
+
+  lua_insert(L, top+2);
+  lua_settop(L, top+2);
+
+  return L;
 }
 
-static void notify_upper_cb( struct session * s, long c, int o)
+static void notify_lower_cb(struct session* s, int op)
 {
-  static const char* print[] = { NULL, "up_frame", "up_message", "up_qempty", "up_answered", "quiescent", "windowfull" };
-  printf("%p notify_upper #%ld %d=%s\n", s, c, o, print[o]);
+//static const char* print[] = { NULL, "bll_status", "bll_in_buffer", "bll_out_buffer" };
+//printf("%p notify_lower %d=%s status=%d\n", s, op, print[op], bll_status(s));
+
+  lua_State* L = core_get_cb(s, "notify_lower");
+  if(!L)
+    return;
+
+  int top = lua_gettop(L) - 2;
+  lua_pushinteger(L, op);
+
+  // TODO pass strings, not ints?
+  v_pcall(L, "swirl notify_lower", 2, 0);
+
+  assert(lua_gettop(L) == top);
+}
+
+static void notify_upper_cb( struct session * s, long chno, int op)
+{
+//static const char* print[] = { NULL, "up_frame", "up_message", "up_qempty", "up_answered", "quiescent", "windowfull" };
+//printf("%p notify_upper #%ld %d=%s\n", s, chno, op, print[op]);
+
+  lua_State* L = core_get_cb(s, "notify_upper");
+  if(!L)
+    return;
+  int top = lua_gettop(L) - 2;
+  lua_pushinteger(L, chno);
+  lua_pushinteger(L, op);
+
+  // TODO pass strings, not ints?
+  v_pcall(L, "swirl notify_lower", 3, 0);
+
+  assert(lua_gettop(L) == top);
 }
 
 static int core_create(lua_State* L)
 {
-  char* profiles[] = { "http://example.com/beep-echo", 0 };
-  char il = *luaL_checkstring(L, 1);
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  char il = *luaL_checkstring(L, 3);
+  const char* features = luaL_optlstring(L, 4, NULL, NULL);
+  const char* localize = luaL_optlstring(L, 5, NULL, NULL);
+  luaL_checktype(L, 6, LUA_TTABLE);
+
+  // TODO - allow profile to be NULL, and an error to be provided instead
+  // NOTE - profile or error must be set, but the code doesn't seem to insist
+  // that there be more than zero profiles (which makes sense for a client-only
+  // beep peer).
+
+  int profilecount = lua_objlen(L, 6);
+  const char** profiles = lua_newuserdata(L, sizeof(*profiles) * (profilecount + 1));
+  int i;
+  for(i = 0; i < profilecount; i++) {
+    lua_rawgeti(L, 6, i+1);
+    profiles[i] = lua_tostring(L, -1);
+    lua_pop(L, 1);
+    luaL_argcheck(L, profiles[i], 6, "profiles must be strings");
+  }
+  profiles[i] = NULL;
 
   Core c = lua_newuserdata(L, sizeof(*c));
 
   memset(c, 0, sizeof(*c));
+
+  c->L = L;
+  c->ref = LUA_NOREF;
 
   luaL_getmetatable(L, CORE_REGID);
   lua_setmetatable(L, -2);
@@ -395,9 +470,9 @@ static int core_create(lua_State* L)
       notify_lower_cb,
       notify_upper_cb,
       il,
-      NULL, // features
-      NULL, // localize
-      profiles,
+      (char*)features,
+      (char*)localize,
+      (char**)profiles,
       NULL, // error
       (void*) c // user_data
       );
@@ -405,6 +480,34 @@ static int core_create(lua_State* L)
   if(!c->s) {
     return luaL_error(L, "%s", "bll_session_create failed");
   }
+
+  // create a fenv, put it in the registry
+
+  lua_newtable(L);
+  lua_setfenv(L, -1);
+
+  lua_getfenv(L, -1);
+  c->ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  lua_getfenv(L, -1);
+
+  // fenv["weak"] = { session = <userdata> },
+  //   with a weak table, so gc cycles don't occur
+  v_pushweaktable(L, "v");
+  lua_pushvalue(L, -3);
+  lua_setfield(L, -2, "session");
+  lua_setfield(L, -2, "weak");
+
+  // fenv["notify_lower"] = fn
+  lua_pushvalue(L, 1);
+  lua_setfield(L, -2, "notify_lower");
+
+  // fenv["notify_upper"] = fn
+  lua_pushvalue(L, 2);
+  lua_setfield(L, -2, "notify_upper");
+
+  // pop the fenv
+  lua_pop(L, 1);
 
   return 1;
 }
@@ -417,9 +520,14 @@ static int core_gc(lua_State* L)
 
   if(c->s) {
     bll_session_destroy(c->s);
+    c->s = NULL;
   }
 
-  c->s = NULL;
+  if(c->ref) {
+    lua_pushnil(L);
+    lua_rawseti(L, LUA_REGISTRYINDEX, c->ref);
+    c->ref = LUA_NOREF;
+  }
 
   return 0;
 }
@@ -504,12 +612,81 @@ static int core_chan0_read(lua_State* L)
   return 1;
 }
 
+static struct profile* core_build_profiles(lua_State* L, int idx)
+{
+  int n = lua_objlen(L, idx);
+
+  if(!n)
+    return NULL;
+
+  // We allocate with newuserdata so that we can guarantee that it
+  // will be garbage collected. We build the linked-list expected
+  // by the core API inside this buffer.
+  //
+  // FIXME - I need to do better error checking on the type and existence
+  // of keys!
+  struct profile* pbuf = lua_newuserdata(L, n * sizeof(*pbuf));
+  int i;
+  for(i = 1; i <= n; i++) {
+    struct profile* p = pbuf + i - 1;
+    lua_rawgeti(L, idx, i);
+
+    if(i > 1)
+      (p-1)->next = p;
+
+    p->next = NULL;
+
+    lua_getfield(L, -1, "uri");
+    p->uri = (char*) lua_tostring(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "piggyback");
+    size_t sz = 0;
+    p->piggyback = (char*) lua_tolstring(L, -1, &sz);
+    p->piggyback_length = sz;
+    lua_pop(L, 1);
+
+    lua_getfield(L, -1, "encoding");
+    p->encoding = lua_toboolean(L, -1);
+    lua_pop(L, 1);
+  }
+
+  return pbuf;
+};
+
+static int core_chan_start(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  struct chan0_msg chan0 = { 0 };
+  chan0.server_name = (char*) luaL_optstring(L, 3, NULL);
+  chan0.channel_number = luaL_optinteger(L, 4, -1);
+
+  chan0.profile = core_build_profiles(L, 2);
+  luaL_argcheck(L, chan0.profile, 2, "must be an array of profile tables");
+
+  /* allowable fields are:
+   *   server_name (may be NULL)
+   *   profile (an array of profiles)
+   *   channel_number (but should be -1 so it is chosen)
+   */
+  long chno = blu_channel_start(c->s, &chan0);
+
+  if(chno < 0)
+    return luaL_error(L, "failed to start channel #%d, profile %s...",
+	chan0.channel_number, chan0.profile->uri);
+
+  lua_pushinteger(L, chno);
+
+  return 1;
+}
+
 static const struct luaL_reg core_methods[] = {
   { "__gc",               core_gc },
   { "pull",               core_pull },
   { "push",               core_push },
   { "frame_read",         core_frame_read },
   { "chan0_read",         core_chan0_read },
+  { "chan_start",         core_chan_start },
   { NULL, NULL }
 };
 
