@@ -7,6 +7,8 @@ O = $(X:.c=.o)
 L=swirl.so
 
 build: $L
+
+run: build
 	./local/lua ex.lua
 
 LDFLAGS= -g

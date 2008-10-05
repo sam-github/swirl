@@ -31,7 +31,13 @@ static void v_debug_stack(lua_State* L)
       case LUA_TBOOLEAN:
         printf("%s", lua_toboolean(L, i) ? "true" : "false");
         break;
+      case LUA_TUSERDATA:
         /* TODO - print USERDATA type, by checking metatable */
+      case LUA_TTABLE:
+      case LUA_TTHREAD:
+      case LUA_TFUNCTION:
+        printf("%p", lua_topointer(L, i));
+	break;
       default:
         break;
     }
@@ -134,7 +140,7 @@ int v_cb_call_and_release(struct OnCb** pcb, const char* what, int nargs)
 
   return e;
 }
-
+#endif
 
 /*
 Get field from arg table, errors if argt is not a table, returns
@@ -177,6 +183,7 @@ const char* v_arg_string(lua_State* L, int argt, const char* field, const char* 
   return lua_tostring(L, -1);
 }
 
+#if 0
 static
 int v_arg_fn(lua_State* L, int argt, const char* field, int def)
 {
