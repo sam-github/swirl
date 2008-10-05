@@ -82,7 +82,7 @@ static int core_chan0_gc_(lua_State* L, const char* reason)
   struct chan0_msg** fp = luaL_checkudata(L, 1, CHAN0_REGID);
   struct chan0_msg* f = *fp;
 
-  printf("%s %s ud=%p chan0=%p session==%p\n", reason, CHAN0_REGID, fp, f, f ? f->session : 0);
+  //printf("%s %s ud=%p chan0=%p session==%p\n", reason, CHAN0_REGID, fp, f, f ? f->session : 0);
 
   if(f) {
     blu_chan0_destroy(f);
@@ -113,11 +113,39 @@ static int core_chan0_tostring(lua_State* L)
     lua_pushfstring(L, "%s: %p (null)", CHAN0_REGID, ud);
   } else {
     struct chan0_msg* f = *ud;
-    lua_pushfstring(L, "%s: %p op_ic '%c' op_sc '%c' chan %d msg %d features %s localize %s",
-	CHAN0_REGID, ud,
+    lua_pushfstring(L,
+	"%s: ic=%c sc=%c ch=%d msg=%d features=%s localize=%s name=%s",
+	CHAN0_REGID,
 	f->op_ic, f->op_sc,
 	f->channel_number, f->message_number,
-	f->features, f->localize);
+	f->features, f->localize, f->server_name
+	);
+
+    if(f->error) {
+      lua_pushfstring(L, " err=(%d,%s,%s)", f->error->code, f->error->lang, f->error->message);
+      lua_concat(L, 2);
+    }
+/*
+    if(f->profileC) {
+      struct profile* p = f->profile;
+      int i = f->profileC;
+      lua_pushfstring(L, " [%d]", f->profileC);
+      for( ;i ; i--, p = p->next) {
+	lua_pushfstring(L, " (%s,%s,%c)", p->uri, p->piggyback, p->encoding);
+      }
+      lua_concat(L, 1 + f->profileC);
+    }
+*/
+    {
+      struct profile* p = f->profile;
+      int cnt = 2; // existing, plus [%d]
+      lua_pushfstring(L, " [%d]", f->profileC);
+      for( ; p ; p = p->next, cnt++) {
+	lua_pushfstring(L, " (%s,%s,%c)", p->uri, p->piggyback, p->encoding);
+      }
+      lua_concat(L, cnt);
+    }
+
   }
 
   return 1;
@@ -300,7 +328,7 @@ static int core_frame_gc_(lua_State* L, const char* reason)
   struct frame** fp = luaL_checkudata(L, 1, FRAME_REGID);
   struct frame* f = *fp;
 
-  printf("%s %s ud=%p frame=%p session==%p\n", reason, FRAME_REGID, fp, f, f ? f->session : 0);
+  //printf("%s %s ud=%p frame=%p session==%p\n", reason, FRAME_REGID, fp, f, f ? f->session : 0);
 
   if(f) {
     blu_frame_destroy(f);
@@ -522,7 +550,7 @@ static int core_gc(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
 
-  printf("gc %s ud=%p session=%p\n", CORE_REGID, lua_topointer(L, -1), c->s);
+  //printf("gc %s ud=%p session=%p\n", CORE_REGID, lua_topointer(L, -1), c->s);
 
   if(c->s) {
     bll_session_destroy(c->s);
@@ -667,7 +695,6 @@ static int core_chan_start(lua_State* L)
   chan0.server_name = (char*) luaL_optstring(L, 3, NULL);
   chan0.channel_number = luaL_optinteger(L, 4, -1);
 
-  v_debug_stack(L);
   chan0.profile = core_build_profiles(L, 2);
   luaL_argcheck(L, chan0.profile, 2, "must be an array of profile tables");
 

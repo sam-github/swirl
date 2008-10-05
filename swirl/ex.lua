@@ -63,6 +63,10 @@ function mt:push(buffer)
 	  elseif op == "s" then
 	    if status == "i" then
 	      self:_cb("on_start", chan0)
+	    elseif status == "c" then
+	      -- FIXME the channel number here isn't the channel that was started, why not?
+	      local p = chan0:profiles()[1]
+	      self:_cb("on_started", chan0:channelno(), p.uri, q(p.content), p.encoded)
 	    else
 	      assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
 	    end
@@ -119,11 +123,11 @@ function swirl.session(arg)
     lower = {}, -- lower layer notifications, op=true when pending
   }, mt)
   local function notify_lower(op)
-    print("["..tostring(self.core).."] cb lower "..op)
+    --print("["..tostring(self.core).."] cb lower "..op)
     self.lower[op] = true
   end
   local function notify_upper(chno, op)
-    print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
+    --print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
     table.insert(self.upper, {chno, op})
   end
 
@@ -150,32 +154,17 @@ function create(arg)
   return c
 end
 
-function pull(c)
-  local b = c:pull()
-
-  if b then
-    print("["..tostring(c).."] > \n"..b)
-  end
-
-  return b
-end
-
-function push(c, b)
-  print("["..tostring(c).."] < ["..#b.."])")
-  c:push(b)
-end
-
 function dolower(i, l)
   local function pullpush(from, to)
-    local b = pull(from)
+    local b = from:pull()
     if b then
-      push(to, b)
+      print("-- "..from.arg.il.." to "..to.arg.il.."\n"..b.."--")
+      to:push(b)
     end
     return b
   end
 
   while pullpush(i, l) or pullpush(l,i) do
-    print"... lower looped"
   end
 end
 
@@ -186,26 +175,39 @@ function frame_read(c)
   return f
 end
 
-function chan0_read(c)
-  local f = c:chan0_read()
-  print("["..tostring(c).."] > "..tostring(f))
-  for i,v in ipairs(f:profiles()) do
-    print("    profile="..q(v))
-  end
-  return f
-end
-
 print"= session establishment..."
 
 i = create{il="I"}
 l = create{
   il="L",
-  on_accepted = function() print"L ACCEPTED" end,
-  on_start = function(ch0) 
-    print("...on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
-    ch0:accept(ch0:profiles()[1])
-    --ch0:reject(1, "error message here")
+
+  -- session management
+  on_accepted = function()
+    print"... L ACCEPTED"
   end,
+
+  -- channel management
+  on_start = function(ch0) 
+    print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
+
+    -- accept the first of the requested profiles
+    -- TODO accept is confusing with on_accepted above...
+    --    on_confirmed and on_denied?
+    ch0:accept(ch0:profiles()[1])
+    --ch0:reject(1, "error message here") -- FIXME doesn't work!
+  end,
+
+  -- uri can be nil if not accepted? or does that suck? should be consistent...
+  on_started = function(chno, uri, content, encoded)
+    print("... on_started:", chno, uri, content, encoded)
+  end,
+
+  on_close = function(chno)
+  end,
+
+  on_closed = function(chno)
+  end,
+
 }
 
 print("I="..tostring(i))
@@ -218,14 +220,9 @@ print"= channel start..."
 chno = i:chan_start{
   profiles={{uri="http://example.org/beep/echo"}},
   servername="beep.example.com",
-  -- callbacks?
   }
 
 print("= requested chno "..chno)
-
-dolower(i,l)
-
-print("= L is "..q(l))
 
 dolower(i,l)
 
