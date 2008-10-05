@@ -1927,6 +1927,7 @@ long blu_channel_start(
 
   channel_number = chan0->channel_number;
 
+  /* auto-choose a channel number that doesn't collide with a manually chosen one */
   while (channel_number == -1 && s->next_channel < 1000000000) {
     /* Let's not try to fix the case of more than a billion channels opened @$@$ */
     channel_number = s->next_channel;
@@ -1936,6 +1937,7 @@ long blu_channel_start(
         channel_number = -1;
     }
   }
+  /* ensure that a manually chosen channel number doesn't collide with an existing channel */
   for (c = s->channel; c != NULL; c = c->next) {
     if (channel_number == c->channel_number) {
       s->status_channel = channel_number;
@@ -2152,7 +2154,8 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
         /* start failed */
         channel_destroy(s, c);
       }
-      return cz;
+      /* start confirmations need to know the channel which was started */
+      cz->channel_number = c->channel_number;
     }
   } else if (cz->op_sc == 'c') {
     if (cz->op_ic == 'i') {
@@ -2195,6 +2198,8 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
           /* Finished closing - go for it */
           channel_destroy(s, c);
         }
+	/* close confirmation or error needs to know the channel */
+	cz->channel_number = c->channel_number;
       }
     }
   } else {
