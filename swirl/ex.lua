@@ -48,10 +48,8 @@ function mt:push(buffer)
     --print("  upper ch#"..chno.." "..op)
     if op == "frame" or op == "message" then
       if chno == 0 then
-	local chan0 = self:chan0_read()
-	if not chan0 then
-	  -- message could already have been consumed
-	else
+	local chan0 = self.core:chan0_read()
+	if chan0 then
 	  print(q(chan0))
 	  local ic, op = chan0:op()
 	  print("op "..op.." ic "..ic)
@@ -104,7 +102,11 @@ function mt:push(buffer)
 	  end
 	end
       else
-	assert(nil, "UNHANDLED ch#"..chno)
+	local frame = self.core:frame_read(chno)
+	if frame then
+	  local type = frame:type()
+	  self:_cb("on_"..type, frame)
+	end
       end
     elseif op == "answered" then
       -- All sent MSGs have been answered in full.
@@ -127,26 +129,30 @@ function mt:push(buffer)
   end
 end
 
--- TODO make private
-function mt:frame_read()
-  return self.core:frame_read()
-end
-
--- TODO make private
-function mt:chan0_read()
-  return self.core:chan0_read()
-end
-
 function mt:chan_start(arg)
   return self.core:chan_start(arg.profiles, arg.servername, arg.channelno)
 end
 
-function mt:status()
-  return self.core:status()
+function mt:chan_close(chno, ecode)
+  return self.core:chan_close(chno, ecode)
 end
 
 function mt:close(ecode)
-  return self.core:chan_close(0,ecode)
+  return self:chan_close(0, ecode)
+end
+
+function mt:send_msg(chno, msg)
+  -- We are responsible for allocating message numbers, lets make them increase
+  -- sequentially within a channel.
+  self._msgno = self._msgno or {}
+  local msgno = self._msgno[chno] or 1
+  self.core:frame_send(chno, "MSG", msg, msgno)
+  self._msgno[chno] = msgno + 1
+  return msgno
+end
+
+function mt:status()
+  return self.core:status()
 end
 
 -- FIXME how can I define userdata objects, so their methods can be defined
@@ -203,22 +209,27 @@ function create(arg)
     end,
 
     on_started = function(chno, uri, content)
-      print("... on_started:", chno, uri, content)
+      print("... on_started:", chno, uri, q(content))
     end,
 
     on_startfailed = function(chno, ecode, emsg, elang)
-      print("... on_startfailed:", chno, ecode, emsg, elang)
+      print("... on_startfailed:", chno, ecode, q(emsg), elang)
     end,
 
     on_close = function(ch0)
       local chno = ch0:channelno()
       local ecode, emsg, elang = ch0:error()
-      print("... on_close:", chno, ecode, emsg, elang)
+      print("... on_close:", chno, ecode, q(emsg), elang)
       ch0:accept()
     end,
 
     on_closed = function(chno, ...)
       print("... on_closed:", chno, ...)
+    end,
+
+    -- message transfer
+    on_msg = function(frame)
+      print("... on_msg:", frame:messageno(), frame:more(), q(frame:payload()))
     end,
   }
 
@@ -288,7 +299,6 @@ pump(i,l)
 
 print"=== test session close"
 
-local first_close = true
 i = create{il="I"}
 l = create{il="L"}
 
@@ -305,9 +315,9 @@ chno = i:chan_start{
 
 pump(i,l)
 
+
 print"=== test session close with rejection"
 
-local first_close = true
 i = create{il="I",
   on_close = function(ch0)
     local chno = ch0:channelno()
@@ -340,6 +350,25 @@ pump(i,l)
 chno = i:chan_start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
+
+pump(i,l)
+
+
+print"=== test msg send"
+
+i = create{il="I"}
+l = create{il="L"}
+
+pump(i,l)
+
+chno = i:chan_start{
+  profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
+  servername="SERVERNAME",
+  }
+
+pump(i,l)
+
+msgno = i:send_msg(chno, "hello, world")
 
 pump(i,l)
 

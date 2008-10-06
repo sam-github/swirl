@@ -391,7 +391,16 @@ static int core_frame_tostring(lua_State* L)
 static int core_frame_type(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
-  lua_pushlstring(L, &f->msg_type, 1);
+  const char* msg_type = NULL;
+  switch(f->msg_type) {
+    case 'M': msg_type = "msg"; break;
+    case 'R': msg_type = "rpy"; break;
+    case 'A': msg_type = "ans"; break;
+    case 'N': msg_type = "nul"; break;
+    case 'E': msg_type = "err"; break;
+  }
+  assert(msg_type);
+  lua_pushstring(L, msg_type);
   return 1;
 }
 
@@ -649,9 +658,8 @@ static int core_frame_read(lua_State* L)
   int chno = luaL_optint(L, 2, -1);
   struct frame* f = blu_frame_read(c->s, chno);
   if(!f)
-    lua_pushnil(L);
-  else
-    core_frame_push(L, f, 1);
+    return 0;
+  core_frame_push(L, f, 1);
   return 1;
 }
 
@@ -748,6 +756,39 @@ static int core_chan_close(lua_State* L)
   return 0;
 }
 
+/*-
+- core:frame_send(chno, msgtype, msg, msgno, ansno, more)
+
+Low-level frame sending... not to be used directly!
+*/
+static int core_frame_send(lua_State* L)
+{
+  static const char* msgtypes[] = { "MSG", "RPY", "ANS", "NUL", "ERR", NULL };
+  static const char* mores[] = { "*", ".", NULL };
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int chno = luaL_checkint(L, 2);
+  char msgtype = *msgtypes[luaL_checkoption(L, 3, NULL, msgtypes)];
+  size_t msgsz = 0;
+  const char* msg = luaL_checklstring(L, 4, &msgsz);
+  int msgno = luaL_optinteger(L, 5, -1);
+  int ansno = luaL_optinteger(L, 6, -1);
+  char more = *mores[luaL_checkoption(L, 7, ".", mores)];
+
+  struct frame* f = blu_frame_create(c->s, msgsz);
+
+  f->msg_type = msgtype;
+  f->channel_number = chno;
+  f->message_number = msgno;
+  f->answer_number = ansno;
+  f->more = more;
+  f->size = msgsz;
+  memcpy(f->payload, msg, msgsz);
+
+  blu_frame_send(f);
+
+  return 0;
+}
+
 static int core_status(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
@@ -770,6 +811,7 @@ static const struct luaL_reg core_methods[] = {
   { "chan0_read",         core_chan0_read },
   { "chan_start",         core_chan_start },
   { "chan_close",         core_chan_close },
+  { "frame_send",         core_frame_send },
   { "status",             core_status },
   { NULL, NULL }
 };
