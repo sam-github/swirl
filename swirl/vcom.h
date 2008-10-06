@@ -161,7 +161,6 @@ int v_arg(lua_State* L, int argt, const char* field)
   return lua_gettop(L);
 }
 
-static
 const char* v_arg_string(lua_State* L, int argt, const char* field, const char* def)
 {
   if(!v_arg(L, argt, field))

@@ -658,7 +658,6 @@ void blu_chan0_destroy(
      If error!=NULL and profile!=NULL, the error message
        is formatted and returned as the PCDATA of the
        <profile> element returned.
-       --> Huh? why not the content of struct profile?
      If error!=NULL and profile==NULL, the channel
        is not opened.
      */

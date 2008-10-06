@@ -17,7 +17,7 @@ mt.__index = mt
 swirl._session_mt = mt
 
 function mt:_cb(cb, ...)
-  print("-> _cb "..cb, ...)
+  --print("-> _cb "..cb, ...)
   -- TODO callbacks might all need to take session as the first argument,
   -- because they can't capture the session in their closure (they are passed
   -- before the session exists)
@@ -42,7 +42,7 @@ function mt:push(buffer)
   -- process upper layer...
   while #self.upper > 0 do
     local chno, op = unpack(table.remove(self.upper))
-    print("  upper ch#"..chno.." "..op)
+    --print("  upper ch#"..chno.." "..op)
     if op == "frame" or op == "message" then
       if chno == 0 then
 	local chan0 = self:chan0_read()
@@ -52,7 +52,9 @@ function mt:push(buffer)
 	  print(q(chan0))
 	  local status, op = chan0:op()
 	  print("op "..op.." status "..status)
+
 	  if op == "g" then
+	    -- Greeting
 	    if status == "c" then
 	      self:_cb("on_accepted")
 	    elseif status == "e" then
@@ -61,12 +63,21 @@ function mt:push(buffer)
 	      assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
 	    end
 	  elseif op == "s" then
+	    -- Start
 	    if status == "i" then
 	      self:_cb("on_start", chan0)
 	    elseif status == "c" then
-	      -- FIXME the channel number here isn't the channel that was started, why not?
 	      local p = chan0:profiles()[1]
-	      self:_cb("on_started", chan0:channelno(), p.uri, q(p.content), p.encoded)
+	      local ecode, emsg, elang = chan0:error()
+	      local chno = chan0:channelno()
+	      if p then
+		-- blu_chan0_in() docs indicate there may be an error, too, I think that would
+		-- just happen if the RPY payload contained xml that looked like <error>.
+		self:_cb("on_started", chno, p.uri, p.content)
+	      else
+		assert(ecode, ("UNHANDLED op %s, status %s"):format(op, status))
+		self:_cb("on_startfailed", chno, ecode, emsg, elang)
+	      end
 	    else
 	      assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
 	    end
@@ -98,16 +109,18 @@ function mt:push(buffer)
   end
 end
 
+-- TODO make private
 function mt:frame_read()
   return self.core:frame_read()
 end
 
+-- TODO make private
 function mt:chan0_read()
   return self.core:chan0_read()
 end
 
 function mt:chan_start(arg)
-  return self.core:chan_start(arg.profiles, arg.server_name, arg.channel_number)
+  return self.core:chan_start(arg.profiles, arg.servername, arg.channelno)
 end
 
 function mt:status()
@@ -147,9 +160,48 @@ end
 -- debug wrappers
 
 function create(arg)
-  local c = swirl.session(arg)
+  local template = {
+    -- session management
+    on_accepted = function(...)
+      print("... on_accepted", ...)
+    end,
 
-  print("create "..q(c))
+    -- channel management
+    on_start = function(ch0)
+      -- TODO maybe the ch0 should be held internally, and :accept() should be called
+      -- with a chno on the session. This would be more consistent, the other cbs get
+      -- info ffrom ch0, not the UD itself
+      print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
+
+      -- accept the first of the requested profiles
+      -- TODO accept is confusing with on_accepted above...
+      --    on_confirmed and on_denied?
+      local p = ch0:profiles()[1]
+      ch0:accept(p.uri, p.content)
+    end,
+
+    on_started = function(chno, uri, content)
+      print("... on_started:", chno, uri, content)
+    end,
+
+    on_startfailed = function(chno, ecode, emsg, elang)
+      print("... on_startfailed:", chno, ecode, emsg, elang)
+    end,
+
+    on_close = function(chno, ...)
+      print("... on_close:", chno, ...)
+    end,
+
+    on_closed = function(chno, ...)
+      print("... on_closed:", chno, ...)
+    end,
+  }
+
+  for k,v in pairs(arg) do template[k] = v end
+
+  local c = swirl.session(template)
+
+  --print("create "..q(c))
 
   return c
 end
@@ -168,75 +220,55 @@ function dolower(i, l)
   end
 end
 
-function frame_read(c)
-  local f = c:frame_read()
-  print("["..tostring(c).."] > "..tostring(f))
-  print(f:payload())
-  return f
-end
-
-print"= session establishment..."
+print"=== test session establishment"
 
 i = create{il="I"}
-l = create{
-  il="L",
-
-  -- session management
-  on_accepted = function()
-    print"... L ACCEPTED"
-  end,
-
-  -- channel management
-  on_start = function(ch0) 
-    print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
-
-    -- accept the first of the requested profiles
-    -- TODO accept is confusing with on_accepted above...
-    --    on_confirmed and on_denied?
-    ch0:accept(ch0:profiles()[1])
-    --ch0:reject(1, "error message here") -- FIXME doesn't work!
-  end,
-
-  -- uri can be nil if not accepted? or does that suck? should be consistent...
-  on_started = function(chno, uri, content, encoded)
-    print("... on_started:", chno, uri, content, encoded)
-  end,
-
-  on_close = function(chno)
-  end,
-
-  on_closed = function(chno)
-  end,
-
-}
-
-print("I="..tostring(i))
-print("L="..tostring(l))
+l = create{il="L"}
 
 dolower(i,l)
 
-print"= channel start..."
+
+print"=== test channel start ok"
+
+i = create{il="I"}
+l = create{il="L"}
+
+dolower(i,l)
+
+chno = i:chan_start{
+  profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
+  servername="SERVERNAME",
+  }
+
+dolower(i,l)
+
+
+print"=== test channel start error"
+
+i = create{il="I"}
+l = create{il="L",
+  on_start = function(ch0)
+    ch0:reject(500)
+  end,
+}
+
+dolower(i,l)
 
 chno = i:chan_start{
   profiles={{uri="http://example.org/beep/echo"}},
-  servername="beep.example.com",
   }
-
-print("= requested chno "..chno)
 
 dolower(i,l)
 
--- test gc order
-print"no gc"
+
+
+
+print"=== garbage collect"
 
 i = nil
 l = nil
 
-print"yes gc"
-
-fi = nil
-
 collectgarbage()
 
-print"done"
+print"=== done"
 

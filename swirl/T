@@ -8,6 +8,6 @@ x="$C $A $G $L"
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c
+ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c *.h
 
 

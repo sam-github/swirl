@@ -125,23 +125,13 @@ static int core_chan0_tostring(lua_State* L)
       lua_pushfstring(L, " err=(%d,%s,%s)", f->error->code, f->error->lang, f->error->message);
       lua_concat(L, 2);
     }
-/*
-    if(f->profileC) {
-      struct profile* p = f->profile;
-      int i = f->profileC;
-      lua_pushfstring(L, " [%d]", f->profileC);
-      for( ;i ; i--, p = p->next) {
-	lua_pushfstring(L, " (%s,%s,%c)", p->uri, p->piggyback, p->encoding);
-      }
-      lua_concat(L, 1 + f->profileC);
-    }
-*/
+
     {
       struct profile* p = f->profile;
       int cnt = 2; // existing, plus [%d]
       lua_pushfstring(L, " [%d]", f->profileC);
       for( ; p ; p = p->next, cnt++) {
-	lua_pushfstring(L, " (%s,%s,%c)", p->uri, p->piggyback, p->encoding);
+	lua_pushfstring(L, " %s=%s", p->uri, p->piggyback);
       }
       lua_concat(L, cnt);
     }
@@ -181,11 +171,9 @@ static int core_chan0_profiles(lua_State* L)
   for(p = f->profile; p; p = p->next) {
     lua_newtable(L);
     v_setfieldstring(L, -1, "uri", p->uri);
-    v_setfieldlstring(L, -1, "content", p->piggyback, p->piggyback_length);
-    // TODO if p->encoding is true, then content data is base64 encoded.
-    // swirl should decode it before passing it to the user, instead of passing
-    // this encoding flag
-    v_setfieldboolean(L, -1, "encoded", p->encoding);
+    if(p->piggyback_length) {
+      v_setfieldlstring(L, -1, "content", p->piggyback, p->piggyback_length);
+    }
     v_tableinsert(L, -2);
   }
 
@@ -235,21 +223,19 @@ static int core_chan0_session(lua_State* L)
 }
 
 /*-
-- chan0:accept(uri[, content [, encoded]])
+- chan0:accept(uri[, content])
 
-Argument can be one of the profiles from on_start's ch0:profiles().
-
-BUG - beepcore-c has a bug, content must be a null terminated string! Or does
-it take the content from profile.piggyback? Strange, need to investigate.
+In response to a start request (the on_start callback), start the channel.
 */
 static int core_chan0_accept(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
   struct profile profile = { 0 };
 
-  profile.uri = (char*) v_arg_string(L, 2, "uri", NULL);
-  //const char* content = v_arg_string(L, 2, "content", "");
-  //const char* encoded = 0; //v_arg_boolean(L, 2, "encoded", 0);
+  profile.uri = (char*) luaL_checkstring(L, 2);
+  size_t sz = 0;
+  profile.piggyback = (char*) luaL_optlstring(L, 3, NULL, &sz);
+  profile.piggyback_length = sz;
 
   blu_chan0_reply(f, &profile, NULL); // chan was freed by reply
 
@@ -260,6 +246,8 @@ static int core_chan0_accept(lua_State* L)
 
 /*-
 - chan0:reject(code, message, lang)
+
+In response to a start request (the on_start callback), refuse to start the channel.
 */
 static int core_chan0_reject(lua_State* L)
 {
@@ -290,8 +278,8 @@ static const struct luaL_reg core_chan0_methods[] = {
   { "localize",           core_chan0_localize },
   { "servername",         core_chan0_servername },// <start>
   { "session",            core_chan0_session },
-  { "accept",             core_chan0_accept },    // + respond to <start> (or <close>?)
-  { "reject",             core_chan0_reject },    // - respond to <start> (or <close>?)
+  { "accept",             core_chan0_accept },
+  { "reject",             core_chan0_reject },
   { NULL, NULL }
 };
 
@@ -680,7 +668,7 @@ static struct profile* core_build_profiles(lua_State* L, int idx)
     p->piggyback_length = sz;
     lua_pop(L, 1);
 
-    lua_getfield(L, -1, "encoding");
+    lua_getfield(L, -1, "encoded");
     p->encoding = lua_toboolean(L, -1);
     lua_pop(L, 1);
   }
