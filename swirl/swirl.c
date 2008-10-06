@@ -591,14 +591,14 @@ static int core_pull(lua_State* L)
   if(!biv)
     return 0;
 
-  // TODO use luaL_Buffer, its more efficient for small
-  // strings than lua_concat()
+  luaL_Buffer b;
+  luaL_buffinit(L, &b);
   int i;
-  for(i = 0; biv && i < biv->vec_count; i++) {
+  for(i = 0; i < biv->vec_count; i++) {
     struct iovec* v = &biv->iovec[i];
-    lua_pushlstring(L, v->iov_base, v->iov_len);
+    luaL_addlstring(&b, v->iov_base, v->iov_len);
   }
-  lua_concat(L, biv->vec_count);
+  luaL_pushresult(&b);
 
   size_t sz = 0;
   lua_tolstring(L, -1, &sz);
