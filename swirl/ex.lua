@@ -26,7 +26,10 @@ function mt:_cb(cb, ...)
   -- whatever)
   cb = self.arg[cb]
   if cb then
-    cb(...)
+    ok, msg = pcall(cb, ...)
+    if not ok then
+      (self.arg.on_error or print)(cb.." failed with "..msg)
+    end
   end
 end
 
@@ -50,39 +53,54 @@ function mt:push(buffer)
 	  -- message could already have been consumed
 	else
 	  print(q(chan0))
-	  local status, op = chan0:op()
-	  print("op "..op.." status "..status)
+	  local ic, op = chan0:op()
+	  print("op "..op.." ic "..ic)
 
 	  if op == "g" then
 	    -- Greeting
-	    if status == "c" then
+	    if ic == "c" then
 	      self:_cb("on_accepted")
-	    elseif status == "e" then
+	    elseif ic == "e" then
 	      self:_cb("on_rejected") -- TODO pass the error message
 	    else
-	      assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
+	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
 	    end
 	  elseif op == "s" then
 	    -- Start
-	    if status == "i" then
+	    if ic == "i" then
 	      self:_cb("on_start", chan0)
-	    elseif status == "c" then
+	    elseif ic == "c" then
 	      local p = chan0:profiles()[1]
 	      local ecode, emsg, elang = chan0:error()
 	      local chno = chan0:channelno()
 	      if p then
 		-- blu_chan0_in() docs indicate there may be an error, too, I think that would
-		-- just happen if the RPY payload contained xml that looked like <error>.
+		-- just happen if the RPY content contained xml that looked like <error>, but
+		-- I'm going to leave content decoding to the caller, and not try and return it.
 		self:_cb("on_started", chno, p.uri, p.content)
 	      else
-		assert(ecode, ("UNHANDLED op %s, status %s"):format(op, status))
+		assert(ecode)
 		self:_cb("on_startfailed", chno, ecode, emsg, elang)
 	      end
+	      chan0:destroy() -- free up beepcore memory, don't wait for gc
 	    else
-	      assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
+	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
+	    end
+	  elseif op == "c" then
+	    if ic == "i" then
+	      self:_cb("on_close", chan0)
+	    elseif ic == "c" then
+	      local chno = chan0:channelno()
+	      self:_cb("on_closed", chno)
+	      chan0:destroy() -- free up beepcore memory, don't wait for gc
+	      if chno == 0 then
+		--self.core:destroy()
+	      end
+	    else
+	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
 	    end
 	  else
-	    assert(nil, ("UNHANDLED op %s, status %s"):format(op, status))
+	    assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
 	  end
 	end
       else
@@ -125,6 +143,10 @@ end
 
 function mt:status()
   return self.core:status()
+end
+
+function mt:close(ecode)
+  return self.core:chan_close(0,ecode)
 end
 
 -- FIXME how can I define userdata objects, so their methods can be defined
@@ -188,8 +210,11 @@ function create(arg)
       print("... on_startfailed:", chno, ecode, emsg, elang)
     end,
 
-    on_close = function(chno, ...)
-      print("... on_close:", chno, ...)
+    on_close = function(ch0)
+      local chno = ch0:channelno()
+      local ecode, emsg, elang = ch0:error()
+      print("... on_close:", chno, ecode, emsg, elang)
+      ch0:accept()
     end,
 
     on_closed = function(chno, ...)
@@ -206,7 +231,7 @@ function create(arg)
   return c
 end
 
-function dolower(i, l)
+function pump(i, l)
   local function pullpush(from, to)
     local b = from:pull()
     if b then
@@ -225,7 +250,7 @@ print"=== test session establishment"
 i = create{il="I"}
 l = create{il="L"}
 
-dolower(i,l)
+pump(i,l)
 
 
 print"=== test channel start ok"
@@ -233,14 +258,14 @@ print"=== test channel start ok"
 i = create{il="I"}
 l = create{il="L"}
 
-dolower(i,l)
+pump(i,l)
 
 chno = i:chan_start{
   profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
   servername="SERVERNAME",
   }
 
-dolower(i,l)
+pump(i,l)
 
 
 print"=== test channel start error"
@@ -252,16 +277,71 @@ l = create{il="L",
   end,
 }
 
-dolower(i,l)
+pump(i,l)
 
 chno = i:chan_start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
 
-dolower(i,l)
+pump(i,l)
 
 
+print"=== test session close"
 
+local first_close = true
+i = create{il="I"}
+l = create{il="L"}
+
+pump(i,l)
+
+i:close()
+
+pump(i,l)
+
+-- check that the session is now not working
+chno = i:chan_start{
+  profiles={{uri="http://example.org/beep/echo"}},
+  }
+
+pump(i,l)
+
+print"=== test session close with rejection"
+
+local first_close = true
+i = create{il="I",
+  on_close = function(ch0)
+    local chno = ch0:channelno()
+    local ecode, emsg, elang = ch0:error()
+    print("... I on_close:", chno, ecode, emsg, elang)
+    ch0:reject(501, "not ready to do this just yet")
+  end,
+}
+
+l = create{il="L",
+  on_close = function(ch0)
+    local chno = ch0:channelno()
+    local ecode, emsg, elang = ch0:error()
+    print("... L on_close:", chno, ecode, emsg, elang)
+    ch0:accept()
+  end,
+}
+
+pump(i,l)
+
+l:close()
+
+pump(i,l)
+
+i:close()
+
+pump(i,l)
+
+-- check that the session is now not working
+chno = i:chan_start{
+  profiles={{uri="http://example.org/beep/echo"}},
+  }
+
+pump(i,l)
 
 print"=== garbage collect"
 

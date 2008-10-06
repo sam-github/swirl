@@ -46,6 +46,18 @@ SOFTWARE.
 
 #include "vcom.h"
 
+static void core_check_diagnostic(lua_State* L, int idx, struct diagnostic* diagnostic, int def)
+{
+  memset(diagnostic, 0, sizeof(*diagnostic));
+
+  if(def)
+    diagnostic->code = luaL_optinteger(L, idx, def);
+  else
+    diagnostic->code = luaL_checkinteger(L, idx);
+  diagnostic->message = (char*) luaL_optstring(L, idx+1, NULL);
+  diagnostic->lang = (char*) luaL_optstring(L, idx+2, NULL);
+}
+
 #define CHAN0_REGID "swirl.chan0"
 
 static void core_chan0_push(lua_State* L, struct chan0_msg* f, int ncore)
@@ -155,6 +167,13 @@ static int core_chan0_messageno(lua_State* L)
   return 1;
 }
 
+/*-
+- ic, op = chan0:op()
+
+operation is composed of:
+  ic ("i" is indication, "c" is confirmation, "e" is error)
+  op ("s" is start, "c" is close, "g" is greeting)
+*/
 static int core_chan0_op(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -224,20 +243,32 @@ static int core_chan0_session(lua_State* L)
 
 /*-
 - chan0:accept(uri[, content])
+- chan0:accept()
 
-In response to a start request (the on_start callback), start the channel.
+In response to a start request (the on_start callback), start the channel with the specified
+profile.
+
+In response to a close request (the on_close callback), close the channel.
 */
 static int core_chan0_accept(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
-  struct profile profile = { 0 };
-
-  profile.uri = (char*) luaL_checkstring(L, 2);
   size_t sz = 0;
-  profile.piggyback = (char*) luaL_optlstring(L, 3, NULL, &sz);
-  profile.piggyback_length = sz;
+  struct profile p = { 0 };
 
-  blu_chan0_reply(f, &profile, NULL); // chan was freed by reply
+  switch(f->op_sc) {
+    case 's':
+      p.uri = (char*) luaL_checkstring(L, 2);
+      p.piggyback = (char*) luaL_optlstring(L, 3, NULL, &sz);
+      p.piggyback_length = sz;
+      break;
+    case 'c':
+      break;
+    default:
+      return 0;
+  }
+
+  blu_chan0_reply(f, p.uri ? &p : NULL, NULL); // chan was freed by reply
 
   core_chan0_release(L, 1);
 
@@ -248,15 +279,15 @@ static int core_chan0_accept(lua_State* L)
 - chan0:reject(code, message, lang)
 
 In response to a start request (the on_start callback), refuse to start the channel.
+
+In response to a close request (the on_close callback), refuse to close.
 */
 static int core_chan0_reject(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
-  struct diagnostic diagnostic = { 0 };
+  struct diagnostic diagnostic;
 
-  diagnostic.code = luaL_checkinteger(L, 2);
-  diagnostic.message = (char*) luaL_optstring(L, 3, NULL);
-  diagnostic.lang = (char*) luaL_optstring(L, 4, NULL);
+  core_check_diagnostic(L, 2, &diagnostic, 0);
 
   blu_chan0_reply(f, NULL, &diagnostic);
 
@@ -538,8 +569,6 @@ static int core_gc(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
 
-  //printf("gc %s ud=%p session=%p\n", CORE_REGID, lua_topointer(L, -1), c->s);
-
   if(c->s) {
     bll_session_destroy(c->s);
     c->s = NULL;
@@ -559,6 +588,9 @@ static int core_pull(lua_State* L)
   Core c = luaL_checkudata(L, 1, CORE_REGID);
   struct beep_iovec* biv = bll_out_buffer(c->s);
 
+  if(!biv)
+    return 0;
+
   // TODO use luaL_Buffer, its more efficient for small
   // strings than lua_concat()
   int i;
@@ -571,10 +603,10 @@ static int core_pull(lua_State* L)
   size_t sz = 0;
   lua_tolstring(L, -1, &sz);
 
-  if(sz)
-    bll_out_count(c->s, sz);
-  else
-    lua_pushnil(L);
+  if(!sz)
+    return 0;
+
+  bll_out_count(c->s, sz);
 
   return 1;
 }
@@ -702,6 +734,20 @@ static int core_chan_start(lua_State* L)
   return 1;
 }
 
+static int core_chan_close(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int chno = luaL_checkint(L, 2);
+
+  struct diagnostic diagnostic;
+
+  core_check_diagnostic(L, 3, &diagnostic, 200);
+
+  blu_channel_close(c->s, chno, &diagnostic);
+
+  return 0;
+}
+
 static int core_status(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
@@ -723,6 +769,7 @@ static const struct luaL_reg core_methods[] = {
   { "frame_read",         core_frame_read },
   { "chan0_read",         core_chan0_read },
   { "chan_start",         core_chan_start },
+  { "chan_close",         core_chan_close },
   { "status",             core_status },
   { NULL, NULL }
 };
