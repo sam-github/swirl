@@ -256,8 +256,6 @@ function create(arg)
 
   local c = swirl.session(template)
 
-  --print("create "..q(c))
-
   return c
 end
 

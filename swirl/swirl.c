@@ -1,13 +1,5 @@
 /*
-A binding of the beepcore-c into lua 5.1
-
-See:
-
-http://www.aspl.es/fact/files/af-arch/vortex/html/index.html
-http://www.beepcore.org/
-http://www.lua.org/
-
--- LICENSE --
+A binding of beepcore-c into Lua 5.1.
 
 Copyright (c) 2008 Sam Roberts
 
@@ -509,16 +501,24 @@ static void notify_upper_cb( struct session * s, long chno, int op)
 /*
 - core = swirl.core(notify_lower=FN, notify_upper=FN, il=[I|L],
              features=STR, localize=STR, profile={[STR],...})
+
+il is optional, defaults to "I"
+features is optional
+localize is optional
+profile is optional, defaults to {}
+
 */
 static int core_create(lua_State* L)
 {
   luaL_checktype(L, 1, LUA_TFUNCTION);
   luaL_checktype(L, 2, LUA_TFUNCTION);
-  char il = *luaL_checkstring(L, 3);
+  char il = *luaL_optstring(L, 3, "I");
   // TODO error if il is not I or L
   const char* features = luaL_optlstring(L, 4, NULL, NULL);
   const char* localize = luaL_optlstring(L, 5, NULL, NULL);
-  luaL_checktype(L, 6, LUA_TTABLE);
+  if(!lua_gettop(L) >= 6)
+    luaL_checktype(L, 6, LUA_TTABLE);
+
 
   // TODO - allow profile to be NULL, and an error to be provided instead
   // NOTE - profile or error must be set, but the code doesn't seem to insist
@@ -543,10 +543,11 @@ static int core_create(lua_State* L)
   c->L = L;
   c->ref = LUA_NOREF;
 
+  // setmetatable(<core ud>, <core meta>)
   luaL_getmetatable(L, CORE_REGID);
   lua_setmetatable(L, -2);
 
-  // create a fenv, put it in the registry
+  // store the cb fns in the registry, so they can be found from C code
 
   lua_newtable(L);
 
@@ -577,12 +578,16 @@ static int core_create(lua_State* L)
     return luaL_error(L, "%s", "bll_session_create failed");
   }
 
+  //fprintf(stderr, "mk core %p\n", lua_topointer(L, -1));
+
   return 1;
 }
 
 static int core_gc(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
+
+  //fprintf(stderr, "gc core %p\n", lua_topointer(L, 1));
 
   if(c->s) {
     bll_session_destroy(c->s);
@@ -809,7 +814,46 @@ static int core_status(lua_State* L)
   return 3;
 }
 
+/* Allow a userdata to be indexed, but searching for keys first in it's
+ * environment (specific to this userdata) and next in its metatable (generic
+ * to this userdata's "type").
+ */
+int v_indexed_env(lua_State* L)
+{
+  lua_getfenv(L, 1);
+  lua_pushvalue(L, 2);
+  lua_gettable(L, -2);
+
+  if(lua_isnil(L, -1)) {
+    lua_getmetatable(L, 1);
+    lua_pushvalue(L, 2);
+    lua_gettable(L, -2);
+  }
+  return 1;
+}
+
+/* Allow a userdata to be newindexed, by assigning into it's (created-on-need)
+ * environment.
+ */
+int v_newindexed_env(lua_State* L)
+{
+
+  lua_getfenv(L, 1);
+
+  if(lua_isnil(L, -1)) {
+    lua_newtable(L);
+    lua_setfenv(L, 1);
+    lua_getfenv(L, 1);
+  }
+  lua_pushvalue(L, 2);
+  lua_pushvalue(L, 3);
+  lua_settable(L, -3);
+  return 0;
+}
+
 static const struct luaL_reg core_methods[] = {
+  { "__index",            v_indexed_env },
+  { "__newindex",         v_newindexed_env },
   { "__gc",               core_gc },
   { "pull",               core_pull },
   { "push",               core_push },

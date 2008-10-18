@@ -206,12 +206,33 @@ int v_arg_fn(lua_State* L, int argt, const char* field, int def)
 }
 #endif
 
+int v_table_hasfield(lua_State* L, int ntable, const char* field)
+{
+  int has_field = 0;
+
+  lua_getfield(L, ntable, field);
+
+  has_field = !lua_isnil(L, -1);
+
+  lua_pop(L, 1);
+
+  return has_field;
+}
+
+/* Create a new metatable, register methods with it, and if there isn't an
+ * __index method, set it's __index field to point to itself.
+ */
 void v_obj_metatable(lua_State* L, const char* regid, const struct luaL_reg methods[])
 {
   luaL_newmetatable(L, regid);
   luaL_register(L, NULL, methods);
-  lua_pushvalue(L, -1);
-  lua_setfield(L, -2, "__index");
+
+  if(!v_table_hasfield(L, -1, "__index")) {
+    // set metatable.__index = metatable
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "__index");
+  }
+
   lua_pop(L, 1);
 }
 
