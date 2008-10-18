@@ -1,0 +1,86 @@
+See:
+
+http://beepcore-c.sourceforge.net/
+http://www.beepcore.org/
+http://www.lua.org/
+
+Note:
+
+Since beepcore-c is an abandoned project, it might seem odd that I should use
+it to implement swirl. I chose it because its architecture seems to be designed
+for ease of embedding in a host language. It's architecture is described here:
+
+http://beepcore-c.sourceforge.net/Architecture.html
+
+Swirl discards the multi-threaded, overly complex, and overly ambitious wrapper
+portions of the library, and is implemented directly on the "core".
+
+
+BUG I'm pretty sure profile content with embedded NUL screws things up, despite
+that its supposed to be transparently encoded.
+
+BUG sessions aren't being GCed until lua state is destroyed, why not?
+
+
+http://www.aspl.es/vortex/btf.html
+
+http://www.beepcore.org/seq_frames.html
+
+Listen profiles need to be known at time of session creation, because they are
+listed in session initialization message (the greeting).
+
+
+> greeting:
+    features?
+    localize?
+    profile*
+      profile: -- no content!
+        uri
+
+> start:
+    chno
+    servername? -- if accepted, holds for whole session
+    profile+
+      profile:
+        uri
+	content?
+	encoding? -- whether content is base64 encoded, defaults to false
+
+
+
+Profile:
+  on_start/close/frame
+
+
+Write example using swirl of a server with random delays to messages,
+countering the necessity of the "asynch" draft.
+
+
+See:
+
+http://beepcore-c.sourceforge.net/
+http://www.beepcore.org/
+http://www.lua.org/
+
+Note:
+
+Since beepcore-c is an abandoned project, it might seem odd that I should use
+it to implement swirl. I chose it because its architecture seems to be designed
+for ease of embedding in a host language. It's architecture is described here:
+
+http://beepcore-c.sourceforge.net/Architecture.html
+
+Swirl discards the multi-threaded, overly complex, and overly ambitious wrapper
+portions of the library, and is implemented directly on the "core".
+
+
+- Frame vs. Msg
+
+Its important to deal with receiving partial messages, but its annoying if you
+know your messages are small. What to do?
+
+Session creator could spec a max msg size, and wrapper could accumulate frames,
+delivering them when they are complete, or they are over msg size. Could be
+per-channel. That would allow usual case to mean that you don't get small
+frames do to chopping a msg to fit in window, but still completely leave up to
+them the choice of accumulating larger frames, or saying it's invalid.

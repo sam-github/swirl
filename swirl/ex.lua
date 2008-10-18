@@ -6,198 +6,6 @@ local function q(t)
   return serialize(t)
 end
 
-
-print"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-
--- swirl API
-
-local coremt = getmetatable(swirl.core(function()end, function()end,"I",nil,nil,{}))
-
-function coremt:send_rpy(chno, msgno, rpy)
-  self:frame_send(chno, "RPY", rpy, msgno)
-end
-
-local mt = {}
-
-mt.__index = mt
-
-swirl._session_mt = mt
-
-function mt:_cb(cb, ...)
-  --print("-> _cb "..cb, ...)
-  -- TODO callbacks might all need to take session as the first argument,
-  -- because they can't capture the session in their closure (they are passed
-  -- before the session exists)
-  -- TODO should pcall these. if error raised, call on_error (without pcall)
-  -- (so user can choose whether to log error somewhere, or to ignore, exit,
-  -- whatever)
-  local fncb = self.arg[cb]
-  if fncb then
-    ok, msg = pcall(fncb, ...)
-    if not ok then
-      (self.arg.on_error or print)(cb.." failed with "..msg)
-    end
-  end
-end
-
-function mt:pull()
-  self.lower.outready = false
-  return self.core:pull()
-end
-
-function mt:push(buffer)
-  self.lower.inready = nil
-  self.core:push(buffer)
-
-  -- process upper layer...
-  while #self.upper > 0 do
-    local chno, op = unpack(table.remove(self.upper))
-    --print("  upper ch#"..chno.." "..op)
-    if op == "frame" or op == "message" then
-      if chno == 0 then
-	local chan0 = self.core:chan0_read()
-	if chan0 then
-	  print(q(chan0))
-	  local ic, op = chan0:op()
-	  print("op "..op.." ic "..ic)
-
-	  if op == "g" then
-	    -- Greeting
-	    if ic == "c" then
-	      self:_cb("on_accepted")
-	    elseif ic == "e" then
-	      self:_cb("on_rejected") -- TODO pass the error message
-	    else
-	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
-	    end
-	  elseif op == "s" then
-	    -- Start
-	    if ic == "i" then
-	      self:_cb("on_start", chan0)
-	    elseif ic == "c" then
-	      local p = chan0:profiles()[1]
-	      local ecode, emsg, elang = chan0:error()
-	      local chno = chan0:channelno()
-	      if p then
-		-- blu_chan0_in() docs indicate there may be an error, too, I think that would
-		-- just happen if the RPY content contained xml that looked like <error>, but
-		-- I'm going to leave content decoding to the caller, and not try and return it.
-		self:_cb("on_started", chno, p.uri, p.content)
-	      else
-		assert(ecode)
-		self:_cb("on_startfailed", chno, ecode, emsg, elang)
-	      end
-	      chan0:destroy() -- free up beepcore memory, don't wait for gc
-	    else
-	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
-	    end
-	  elseif op == "c" then
-	    if ic == "i" then
-	      self:_cb("on_close", chan0)
-	    elseif ic == "c" then
-	      local chno = chan0:channelno()
-	      self:_cb("on_closed", chno)
-	      chan0:destroy() -- free up beepcore memory, don't wait for gc
-	      if chno == 0 then
-		--self.core:destroy()
-	      end
-	    else
-	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
-	    end
-	  else
-	    assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
-	  end
-	end
-      else
-	local frame = self.core:frame_read(chno)
-	if frame then
-	  local type = frame:type()
-	  self:_cb("on_"..type, frame)
-	end
-      end
-    elseif op == "answered" then
-      -- All sent MSGs have been answered in full.
-      -- (Safe to initiate close, tuning reset, etc.)
-      --
-      -- We need to remember this state so we know when we can close a channel.
-    elseif op == "qempty" then
-      -- All queued outgoing frames for this channel have been written.
-      --
-      -- Useful so local side can get involved in flow control?
-    elseif op == "quiescent" then
-      -- Channel is quiescent.
-      --
-      -- (Safe to confirm close, tuning reset, etc.)
-      --
-      -- We need to remember this state so we know when we can confirm close a channel.
-    else
-      assert(nil, "UNHANDLED "..op)
-    end
-  end
-end
-
-function mt:chan_start(arg)
-  return self.core:chan_start(arg.profiles, arg.servername, arg.channelno)
-end
-
-function mt:chan_close(chno, ecode)
-  return self.core:chan_close(chno, ecode)
-end
-
-function mt:close(ecode)
-  return self:chan_close(0, ecode)
-end
-
-function mt:send_msg(chno, msg)
-  -- We are responsible for allocating message numbers, lets make them increase
-  -- sequentially within a channel.
-  self._msgno = self._msgno or {}
-  local msgno = self._msgno[chno] or 1
-  self.core:frame_send(chno, "MSG", msg, msgno)
-  self._msgno[chno] = msgno + 1
-  return msgno
-end
-
-function mt:send_rpy(chno, msgno, rpy)
-  self.core:send_rpy(chno, msgno, rpy)
-end
-
-function mt:status()
-  return self.core:status()
-end
-
--- FIXME how can I define userdata objects, so their methods can be defined
--- in lua!
-function swirl.session(arg)
-  local self = setmetatable({
-    arg=arg,
-    upper = {}, -- upper layer notifications, pairs of {op, chno}
-    lower = {}, -- lower layer notifications, op=true when pending
-  }, mt)
-  local function notify_lower(op)
-    --print("["..tostring(self.core).."] cb lower "..op)
-    self.lower[op] = true
-  end
-  local function notify_upper(chno, op)
-    --print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
-    table.insert(self.upper, {chno, op})
-  end
-
-  self.core = swirl.core(
-    notify_lower,
-    notify_upper,
-    arg.il,
-    nil, -- features
-    nil, -- localize
-    arg.profile or {}
-    )
-
-  return self
-end
-
-
--- debug wrappers
-
 function create(arg)
   local template = {
     -- session management
@@ -254,16 +62,14 @@ function create(arg)
 
   for k,v in pairs(arg) do template[k] = v end
 
-  local c = swirl.session(template)
-
-  return c
+  return swirl.session(template)
 end
 
 function pump(i, l)
   local function pullpush(from, to)
     local b = from:pull()
     if b then
-      print("-- "..from.arg.il.." to "..to.arg.il.."\n"..b.."--")
+      print("-- "..from._arg.il.." to "..to._arg.il.."\n"..b.."--")
       to:push(b)
     end
     return b
@@ -288,7 +94,7 @@ l = create{il="L"}
 
 pump(i,l)
 
-chno = i:chan_start{
+chno = i:start{
   profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
   servername="SERVERNAME",
   }
@@ -307,7 +113,7 @@ l = create{il="L",
 
 pump(i,l)
 
-chno = i:chan_start{
+chno = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
 
@@ -321,12 +127,12 @@ l = create{il="L"}
 
 pump(i,l)
 
-i:close()
+i:close(0)
 
 pump(i,l)
 
 -- check that the session is now not working
-chno = i:chan_start{
+chno = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
 
@@ -364,7 +170,7 @@ i:close()
 pump(i,l)
 
 -- check that the session is now not working
-chno = i:chan_start{
+chno = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
 
@@ -378,7 +184,7 @@ l = create{il="L"}
 
 pump(i,l)
 
-chno = i:chan_start{
+chno = i:start{
   profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
   servername="SERVERNAME",
   }

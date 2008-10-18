@@ -855,23 +855,23 @@ static const struct luaL_reg core_methods[] = {
   { "__index",            v_indexed_env },
   { "__newindex",         v_newindexed_env },
   { "__gc",               core_gc },
-  { "pull",               core_pull },
-  { "push",               core_push },
-  { "frame_read",         core_frame_read },
-  { "chan0_read",         core_chan0_read },
-  { "chan_start",         core_chan_start },
-  { "chan_close",         core_chan_close },
-  { "frame_send",         core_frame_send },
+  { "_pull",              core_pull },
+  { "_push",              core_push },
+  { "_frame_read",        core_frame_read },
+  { "_chan0_read",        core_chan0_read },
+  { "_chan_start",        core_chan_start },
+  { "_chan_close",        core_chan_close },
+  { "_frame_send",        core_frame_send },
   { "status",             core_status },
   { NULL, NULL }
 };
 
 static const struct luaL_reg swirl_methods[] = {
-  { "core",               core_create },
+  { "_core",              core_create },
   { NULL, NULL }
 };
 
-int luaopen_swirl(lua_State* L)
+int luaopen_swirl_core(lua_State* L)
 {
   (void) v_debug_stack;
 
