@@ -10,6 +10,13 @@ end
 print"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 
 -- swirl API
+
+local coremt = getmetatable(swirl.core(function()end, function()end,"I",nil,nil,{}))
+
+function coremt:send_rpy(chno, msgno, rpy)
+  self:frame_send(chno, "RPY", rpy, msgno)
+end
+
 local mt = {}
 
 mt.__index = mt
@@ -24,9 +31,9 @@ function mt:_cb(cb, ...)
   -- TODO should pcall these. if error raised, call on_error (without pcall)
   -- (so user can choose whether to log error somewhere, or to ignore, exit,
   -- whatever)
-  cb = self.arg[cb]
-  if cb then
-    ok, msg = pcall(cb, ...)
+  local fncb = self.arg[cb]
+  if fncb then
+    ok, msg = pcall(fncb, ...)
     if not ok then
       (self.arg.on_error or print)(cb.." failed with "..msg)
     end
@@ -151,6 +158,10 @@ function mt:send_msg(chno, msg)
   return msgno
 end
 
+function mt:send_rpy(chno, msgno, rpy)
+  self.core:send_rpy(chno, msgno, rpy)
+end
+
 function mt:status()
   return self.core:status()
 end
@@ -229,8 +240,16 @@ function create(arg)
 
     -- message transfer
     on_msg = function(frame)
-      print("... on_msg:", frame:messageno(), frame:more(), q(frame:payload()))
+      print("... on_msg:", frame:channelno(), frame:messageno(), frame:more(), q(frame:payload()))
+      frame:session():send_rpy(frame:channelno(), frame:messageno(), frame:payload())
+      frame:destroy()
     end,
+
+    on_rpy = function(frame)
+       print("... on_rpy:", frame:channelno(), frame:messageno(), frame:more(), q(frame:payload()))
+
+       frame:destroy()
+     end
   }
 
   for k,v in pairs(arg) do template[k] = v end

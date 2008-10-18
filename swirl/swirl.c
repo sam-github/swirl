@@ -68,6 +68,8 @@ static void core_chan0_push(lua_State* L, struct chan0_msg* f, int ncore)
 
   luaL_getmetatable(L, CHAN0_REGID);
   lua_setmetatable(L, -2);
+
+  // setfenv(<chan0 ud>, { session = <core ud> })
   lua_newtable(L);
   lua_pushvalue(L, ncore);
   lua_setfield(L, -2, "session");
@@ -504,6 +506,10 @@ static void notify_upper_cb( struct session * s, long chno, int op)
   v_pcall(L, "swirl notify_lower", 2, 0);
 }
 
+/*
+- core = swirl.core(notify_lower=FN, notify_upper=FN, il=[I|L],
+             features=STR, localize=STR, profile={[STR],...})
+*/
 static int core_create(lua_State* L)
 {
   luaL_checktype(L, 1, LUA_TFUNCTION);
