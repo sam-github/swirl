@@ -55,9 +55,13 @@ function create(arg)
 
     on_rpy = function(frame)
        print("... on_rpy:", frame:channelno(), frame:messageno(), frame:more(), q(frame:payload()))
-
        frame:destroy()
-     end
+     end,
+
+    on_err = function(frame)
+       print("... on_err:", frame:channelno(), frame:messageno(), frame:more(), q(frame:payload()))
+       frame:destroy()
+     end,
   }
 
   for k,v in pairs(arg) do template[k] = v end
@@ -77,6 +81,33 @@ function pump(i, l)
 
   while pullpush(i, l) or pullpush(l,i) do
   end
+end
+
+print"=== test independence of core env"
+
+do
+  local function p(c)
+    local env = debug.getfenv(c)
+    local meta = getmetatable(c)
+    print("p", c, meta, env)
+    for k,v in pairs(env) do print("env", k, v) end
+    --for k,v in pairs(meta) do print("meta", k, v) end
+  end
+
+  local function f() end
+
+  i = swirl._core(f, f)
+  --p(i)
+  l = swirl._core(f, f)
+  --p(i)
+  --p(l)
+
+  i.n = "i"
+  assert(i.n == "i")
+
+  l.n = "l"
+  assert(i.n == "i")
+  assert(l.n == "l")
 end
 
 print"=== test session establishment"
@@ -177,7 +208,7 @@ chno = i:start{
 pump(i,l)
 
 
-print"=== test msg send"
+print"=== test msg send/rpy"
 
 i = create{il="I"}
 l = create{il="L"}
@@ -194,6 +225,39 @@ pump(i,l)
 msgno = i:send_msg(chno, "hello, world")
 
 pump(i,l)
+
+print"=== test msg send/err"
+
+ok = false
+
+i = create{il="I",
+  on_err = function(frame)
+    print("on_err", frame)
+    ok = frame
+  end
+}
+
+l = create{il="L",
+  on_msg = function(frame)
+    frame:session():send_err(frame:channelno(), frame:messageno(), "ERROR MSG")
+    frame:destroy()
+  end
+}
+
+pump(i,l)
+
+chno = i:start{
+  profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
+  servername="SERVERNAME",
+  }
+
+pump(i,l)
+
+msgno = i:send_msg(chno, "hello, world")
+
+pump(i,l)
+
+assert(ok)
 
 print"=== garbage collect"
 
