@@ -8,8 +8,8 @@ L=swirl.so
 
 build: $L
 
-run: build
-	./local/lua ex.lua
+test: build
+	lua test.lua
 
 LDFLAGS= -g
 CFLAGS+= -g -Wall -Werror

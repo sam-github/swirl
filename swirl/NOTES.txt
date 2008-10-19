@@ -134,22 +134,7 @@ send_msg()/send_ans()..., send_nul()
 
 
 
-See:
-
-http://beepcore-c.sourceforge.net/
-http://www.beepcore.org/
-http://www.lua.org/
-
-Note:
-
-Since beepcore-c is an abandoned project, it might seem odd that I should use
-it to implement swirl. I chose it because its architecture seems to be designed
-for ease of embedding in a host language. It's architecture is described here:
-
-http://beepcore-c.sourceforge.net/Architecture.html
-
-Swirl discards the multi-threaded, overly complex, and overly ambitious wrapper
-portions of the library, and is implemented directly on the "core".
+http://lua-users.org/wiki/FinalizedExceptions
 
 
 - Frame vs. Msg
