@@ -547,8 +547,11 @@ static int core_create(lua_State* L)
   luaL_getmetatable(L, CORE_REGID);
   lua_setmetatable(L, -2);
 
-  // store the cb fns in the registry, so they can be found from C code
+  // setfenv(<core ud>, {})
+  lua_newtable(L);
+  lua_setfenv(L, -2);
 
+  // store the cb fns in the registry, so they can be found from C code
   lua_newtable(L);
 
   // t["notify_lower"] = fn
@@ -601,6 +604,15 @@ static int core_gc(lua_State* L)
   }
 
   return 0;
+}
+
+static int core_tostring(lua_State* L)
+{
+  luaL_checkudata(L, 1, CORE_REGID);
+
+  lua_pushfstring(L, "%s: %p", CORE_REGID, lua_topointer(L, 1));
+
+  return 1;
 }
 
 static int core_pull(lua_State* L)
@@ -817,34 +829,33 @@ static int core_status(lua_State* L)
 /* Allow a userdata to be indexed, but searching for keys first in it's
  * environment (specific to this userdata) and next in its metatable (generic
  * to this userdata's "type").
+ *
+ * Note: by default userdata always has the fenv of it's caller at time
+ * of creation, which isn't so useful, so you must create a new table and
+ * set it as the fenv for new user data if you are using this API.
  */
-int v_indexed_env(lua_State* L)
+int v_fenv_index(lua_State* L)
 {
   lua_getfenv(L, 1);
   lua_pushvalue(L, 2);
   lua_gettable(L, -2);
 
-  if(lua_isnil(L, -1)) {
-    lua_getmetatable(L, 1);
-    lua_pushvalue(L, 2);
-    lua_gettable(L, -2);
-  }
+  if(!lua_isnil(L, -1))
+    return 1; // found in fenv
+
+  if(!lua_getmetatable(L, 1))
+    return 0; // there is not metatable
+
+  lua_pushvalue(L, 2);
+  lua_gettable(L, -2);
+
   return 1;
 }
 
-/* Allow a userdata to be newindexed, by assigning into it's (created-on-need)
- * environment.
- */
-int v_newindexed_env(lua_State* L)
+/* Allow a userdata to be newindexed, by assigning into it's environment.  */
+int v_fenv_newindex(lua_State* L)
 {
-
   lua_getfenv(L, 1);
-
-  if(lua_isnil(L, -1)) {
-    lua_newtable(L);
-    lua_setfenv(L, 1);
-    lua_getfenv(L, 1);
-  }
   lua_pushvalue(L, 2);
   lua_pushvalue(L, 3);
   lua_settable(L, -3);
@@ -852,9 +863,10 @@ int v_newindexed_env(lua_State* L)
 }
 
 static const struct luaL_reg core_methods[] = {
-  { "__index",            v_indexed_env },
-  { "__newindex",         v_newindexed_env },
+  { "__index",            v_fenv_index },
+  { "__newindex",         v_fenv_newindex },
   { "__gc",               core_gc },
+  { "__tostring",         core_tostring },
   { "_pull",              core_pull },
   { "_push",              core_push },
   { "_frame_read",        core_frame_read },
