@@ -1,5 +1,6 @@
 --[[
 
+frame:send_rpy()/err/ans/null? better than frame:session():send_rpy..
 ]]
 
 local getmetatable = getmetatable
@@ -164,14 +165,23 @@ function core:send_rpy(chno, msgno, rpy)
   return self:_frame_send(chno, "RPY", rpy, msgno)
 end
 
+function core:send_err(chno, msgno, err)
+  return self:_frame_send(chno, "ERR", err, msgno)
+end
+
+
 local function notify_lower(self, op)
   --print("["..tostring(self.core).."] cb lower "..op)
-  self._lower[op] = true
+  if self then
+    self._lower[op] = true
+  end
 end
 
 local function notify_upper(self, chno, op)
   --print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
-  table.insert(self._upper, {chno, op})
+  if self then
+    table.insert(self._upper, {chno, op})
+  end
 end
 
 function session(arg)
