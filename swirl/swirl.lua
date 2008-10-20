@@ -180,18 +180,14 @@ function core:send_err(chno, msgno, err)
 end
 
 
-local function notify_lower(self, op)
+local function notify_lower(lower, op)
   --print("["..tostring(self.core).."] cb lower "..op)
-  if self then
-    self._lower[op] = true
-  end
+  lower[op] = true
 end
 
-local function notify_upper(self, chno, op)
+local function notify_upper(upper, chno, op)
   --print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
-  if self then
-    table.insert(self._upper, {chno, op})
-  end
+  table.insert(upper, {chno, op})
 end
 
 --[[
@@ -240,17 +236,17 @@ TODO - above could be unified with signatures like:
 	       err={ecode=,emsg=,elang=}
 
   on_close = function(ch0) 
-
 ]]
 function session(arg)
-  -- The notify callbacks need to have a reference to their core, usually self,
-  -- but we haven't created it yet! Declare the variable, so they can see it
-  -- once it's initialized.
-  local self = nil
+  -- The notify callbacks are called during core creation, so make sure that
+  -- they have a place to put their notifications before the core is returned
+  -- to us.
+  local lower = {}
+  local upper = {}
 
-  self = swirl._core(
-    function(op) notify_lower(self, op) end,
-    function(chno, op) notify_upper(self, chno, op) end,
+  local self = swirl._core(
+    function(op) notify_lower(lower, op) end,
+    function(chno, op) notify_upper(upper, chno, op) end,
     arg.il,
     nil, -- features
     nil, -- localize
@@ -259,9 +255,9 @@ function session(arg)
     )
 
   self._arg=arg
-  self._upper = {} -- upper layer notifications, pairs of {op, chno}
-  self._lower = {} -- lower layer notifications, op=true when pending
-  self._msgno = {} -- map chno to the highest msgno that has been used
+  self._lower = lower -- lower layer notifications, op=true when pending
+  self._upper = upper -- upper layer notifications, pairs of {op, chno}
+  self._msgno = {}    -- map chno to the highest msgno that has been used
   -- TODO - if channel is closed, chno can be reused, so we need to clear these on close!
 
   return self
