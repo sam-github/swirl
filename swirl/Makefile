@@ -32,6 +32,6 @@ LDFLAGS+=-bind_at_load
 
 $O: $H
 
-$L: $O
+$L: $O ../beepcore-c/core/generic/libbeepcore.a
 	gcc $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
