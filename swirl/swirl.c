@@ -499,42 +499,57 @@ static void notify_upper_cb( struct session * s, long chno, int op)
 }
 
 /*
-- core = swirl.core(notify_lower=FN, notify_upper=FN, il=[I|L],
-             features=STR, localize=STR, profile={[STR],...})
-
-il is optional, defaults to "I"
-features is optional
-localize is optional
-profile is optional, defaults to {}
-
+- core = swirl.core(
+	1,2  notify_lower=FN, notify_upper=FN,
+	3    il=[I|L],
+	4    features=STR,
+	5    localize=STR,
+	6    profile={[STR],...},
+	7    error={ecode, emsg, elang},
+	     )
 */
 static int core_create(lua_State* L)
 {
+  lua_settop(L, 7);
   luaL_checktype(L, 1, LUA_TFUNCTION);
   luaL_checktype(L, 2, LUA_TFUNCTION);
   char il = *luaL_optstring(L, 3, "I");
   // TODO error if il is not I or L
   const char* features = luaL_optlstring(L, 4, NULL, NULL);
   const char* localize = luaL_optlstring(L, 5, NULL, NULL);
-  if(!lua_gettop(L) >= 6)
+
+  if(!lua_isnil(L, 6))
     luaL_checktype(L, 6, LUA_TTABLE);
 
+  if(!lua_isnil(L, 7))
+    luaL_checktype(L, 7, LUA_TTABLE);
 
-  // TODO - allow profile to be NULL, and an error to be provided instead
-  // NOTE - profile or error must be set, but the code doesn't seem to insist
-  // that there be more than zero profiles (which makes sense for a client-only
-  // beep peer).
+  // NOTE - profile or error must be set, it's ok to have zero profiles (makes
+  // sense for a client-only peer)
 
+  // Create the profile array dynamically.
   int profilecount = lua_objlen(L, 6);
   const char** profiles = lua_newuserdata(L, sizeof(*profiles) * (profilecount + 1));
   int i;
   for(i = 0; i < profilecount; i++) {
     lua_rawgeti(L, 6, i+1);
     profiles[i] = lua_tostring(L, -1);
+    // TODO should check type is string, and longer than 3 characters
     lua_pop(L, 1);
-    luaL_argcheck(L, profiles[i], 6, "profiles must be strings");
+    luaL_argcheck(L, profiles[i], 6, "profiles must be URI strings");
   }
   profiles[i] = NULL;
+
+  struct diagnostic error = { 0 };
+  if(lua_objlen(L, 7)) {
+    lua_rawgeti(L, 7, 1);
+    lua_rawgeti(L, 7, 2);
+    lua_rawgeti(L, 7, 3);
+    error.code = lua_tonumber(L, -3);
+    error.lang = (char*) lua_tostring(L, -2);
+    error.message = (char*) lua_tostring(L, -1);
+    lua_pop(L, 3);
+  }
 
   Core c = lua_newuserdata(L, sizeof(*c));
 
@@ -573,8 +588,8 @@ static int core_create(lua_State* L)
       (char*)features,
       (char*)localize,
       (char**)profiles,
-      NULL, // error
-      (void*) c // user_data
+      error.code ? &error : NULL,
+      (void*) c
       );
 
   if(!c->s) {

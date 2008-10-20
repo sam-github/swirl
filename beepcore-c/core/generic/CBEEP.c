@@ -53,28 +53,33 @@ int ul_lt(unsigned long left, unsigned long right) {
 
   /* Uses (*malloc) to allocate a string holding an error message */
 static char * fmt_error(struct session * s, struct diagnostic * e) {
-
+  /* Message is not mandatory (see example 2, RFC 3080, sec 2.4). */
+  const char* emessage = e->message ? e->message : "";
   char * pattern;
-  int size; int lang;
+  int size;
+  int lang;
   char * result;
+
+  // The size calculation below assumes ecode is small (a bug?), so check.
+  PRE(e->code <= 999);
 
   lang = (e->lang != NULL && e->lang[0] != '\0');
 
   if (lang) {
     pattern = "<error code='%03d' xml:lang='%s'>%s</error>\r\n";
-    size = strlen(pattern) + strlen(e->lang) + strlen(e->message);
+    size = strlen(pattern) + strlen(e->lang) + strlen(emessage);
   } else {
     pattern = "<error code='%03d'>%s</error>\r\n";
-    size = strlen(pattern) + strlen(e->message);
+    size = strlen(pattern) + strlen(emessage);
   }
 
   result = (s->malloc)(size);
   if (result == NULL) return NULL;
 
   if (lang) {
-    sprintf(result, pattern, e->code, e->lang, e->message);
+    sprintf(result, pattern, e->code, e->lang, emessage);
   } else {
-    sprintf(result, pattern, e->code, e->message);
+    sprintf(result, pattern, e->code, emessage);
   }
   return result;
 }
@@ -1133,7 +1138,6 @@ struct session * bll_session_create(
     (*free)(newsession);
     return NULL;
   }
-/*    chan0->channel_number = 0; */
   chan0->priority = 101;
 
   /* Build the payload for the greeting message */
@@ -2094,11 +2098,23 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
      * in response to a <start> and an error in response
      * to a <close>, so it just says "error" and we look
      * up which it was. */
+    /* SR - double whoops. Lookup below segfaulted when <error> is received
+     * instead of a greeting.  I don't want to change the logic much until I
+     * understand it better, but here I try and short-circuit this case.
+     */
     c = s->channel;
     while (c != NULL && c->c0_message_number != cz->message_number)
       c = c->next;
+
+    if(c == NULL && !s->remote_greeting &&
+	cz->channel_number == 0 && cz->message_number == 0) {
+      // it's a greeting confirmation, with an error
+      cz->op_sc = 'g';
+    } else {
+
     if (c == NULL) {
       FAULT(s, 8, "<error> on chan0 with no request");
+      return NULL;
     }
     /* Here we found what we're answering. */
     if (c->status == 'S') {
@@ -2107,8 +2123,10 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
       cz->op_sc = 'c';
     } else {
       FAULT(s, 8, "You can't get there from here.");
+      return NULL;
     }
     cz->op_ic = 'c';
+    }
   }
 
   if (cz->op_sc == 's') {
@@ -2205,6 +2223,12 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
   } else {
     /* Must be greeting */
     ASSERT(cz->op_sc == 'g');
+    // SR - I don't know what the history of this code is, but its obviously
+    // been heavily hacked up. The comments don't make sense anymore
+    // (remote_greeting is never referenced anywhere, a good thing because
+    // doing so would segf, its destroyed by our caller!), also it looks like
+    // there was support for a while for saving the greeting information, but
+    // all references to that have been commented out of the code base.
     s->remote_greeting = cz; /* This gets disposed at session_destroy */
     if (cz->error != NULL) {
       /* We got an error, not a greeting */

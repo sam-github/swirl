@@ -9,20 +9,19 @@ end
 function create(arg)
   local template = {
     -- session management
-    on_accepted = function(...)
-      print("... on_accepted", ...)
+    on_connected = function(profiles, features, localize)
+      print("...on_connected", q(profiles), q(features), q(localize))
+    end,
+
+    on_connect_err = function(...)
+      print("... on_connect_err", ...)
     end,
 
     -- channel management
     on_start = function(ch0)
-      -- TODO maybe the ch0 should be held internally, and :accept() should be called
-      -- with a chno on the session. This would be more consistent, the other cbs get
-      -- info ffrom ch0, not the UD itself
       print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
 
       -- accept the first of the requested profiles
-      -- TODO accept is confusing with on_accepted above...
-      --    on_confirmed and on_denied?
       local p = ch0:profiles()[1]
       ch0:accept(p.uri, p.content)
     end,
@@ -31,8 +30,8 @@ function create(arg)
       print("... on_started:", chno, uri, q(content))
     end,
 
-    on_startfailed = function(chno, ecode, emsg, elang)
-      print("... on_startfailed:", chno, ecode, q(emsg), elang)
+    on_start_err = function(chno, ecode, emsg, elang)
+      print("... on_start_err:", chno, ecode, q(emsg), elang)
     end,
 
     on_close = function(ch0)
@@ -83,7 +82,7 @@ function pump(i, l)
   end
 end
 
-print"=== test independence of core env"
+print"\n\n=== test independence of core env"
 
 do
   local function p(c)
@@ -110,48 +109,101 @@ do
   assert(l.n == "l")
 end
 
-print"=== test session establishment"
+print"\n\n=== test connect/ok"
 
 i = create{il="I"}
 l = create{il="L"}
 
 pump(i,l)
 
+print"\n\n=== test connect/ok w/zero profiles"
 
-print"=== test channel start ok"
+ok = 0
 
-i = create{il="I"}
-l = create{il="L"}
+i = create{il="I", profile={},
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
+  end,
+}
 
-pump(i,l)
-
-chno = i:start{
-  profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
-  servername="SERVERNAME",
-  }
-
-pump(i,l)
-
-
-print"=== test channel start error"
-
-i = create{il="I"}
 l = create{il="L",
-  on_start = function(ch0)
-    ch0:reject(500)
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
   end,
 }
 
 pump(i,l)
 
-chno = i:start{
-  profiles={{uri="http://example.org/beep/echo"}},
-  }
+assert(ok == 0)
+
+
+print"\n\n=== test connect/ok w/one+one profiles"
+
+ok = 0
+
+i = create{il="I", profile={"http://example.com/I"},
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
+  end,
+}
+
+l = create{il="L", profile={"http://example.com/L"},
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
+  end,
+}
 
 pump(i,l)
 
+assert(ok == 2)
 
-print"=== test session close"
+
+print"\n\n=== test connect/ok w/zero+two profiles"
+
+ok = 0
+
+i = create{il="I",
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
+  end,
+}
+
+l = create{il="L", profile={"http://example.com/L1", "http://example.com/L2"},
+  on_connected=function(profiles, features, localize)
+    print("on_connected", q(profiles), q(features), q(localize))
+    ok = ok + #profiles
+  end,
+}
+
+pump(i,l)
+
+assert(ok == 2)
+
+
+print"\n\n=== test connect/err"
+
+ok = nil
+
+i = create{il="I",
+  on_connect_err=function(ecode, emsg, elang)
+    print("on_connect_err", q(ecode), q(emsg), q(elang))
+    ok = true
+  end,
+}
+
+l = create{il="L", error={501}}
+
+pump(i,l)
+
+assert(ok)
+
+
+print"\n\n=== test session close"
 
 i = create{il="I"}
 l = create{il="L"}
@@ -170,7 +222,7 @@ chno = i:start{
 pump(i,l)
 
 
-print"=== test session close with rejection"
+print"\n\n=== test session close/err"
 
 i = create{il="I",
   on_close = function(ch0)
@@ -208,7 +260,58 @@ chno = i:start{
 pump(i,l)
 
 
-print"=== test msg send/rpy"
+print"\n\n=== test start/ok"
+
+ok = nil
+
+i = create{il="I",
+  on_started = function(...)
+     print("on_started", ...)
+   ok = true
+  end,
+}
+l = create{il="L"}
+
+pump(i,l)
+
+chno = i:start{
+  profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
+  servername="SERVERNAME",
+  }
+
+pump(i,l)
+
+assert(ok)
+
+
+print"\n\n=== test start/err"
+
+ok = nil
+
+i = create{il="I",
+  on_start_err = function(chno, ecode, emsg, elang)
+    print("on_start_err", chno, ecode, emsg, elang)
+    ok = (ecode == 500 and chno == 1)
+  end,
+}
+
+l = create{il="L",
+  on_start = function(ch0)
+    print("on_start", ch0)
+    ch0:reject(500)
+  end,
+}
+
+pump(i,l)
+
+chno = i:start{
+  profiles={{uri="http://example.org/beep/echo"}},
+  }
+
+pump(i,l)
+
+assert(ok, "channel start error")
+print"\n\n=== test msg send/rpy"
 
 i = create{il="I"}
 l = create{il="L"}
@@ -226,7 +329,8 @@ msgno = i:send_msg(chno, "hello, world")
 
 pump(i,l)
 
-print"=== test msg send/err"
+
+print"\n\n=== test msg send/err"
 
 ok = false
 
@@ -259,12 +363,12 @@ pump(i,l)
 
 assert(ok)
 
-print"=== garbage collect"
+print"\n\n=== garbage collect"
 
 i = nil
 l = nil
 
 collectgarbage()
 
-print"=== done"
+print"\n\n=== done"
 

@@ -49,11 +49,21 @@ function core:push(buffer)
 	  if op == "g" then
 	    -- Greeting
 	    if ic == "c" then
-	      self:_cb("on_accepted")
-	    elseif ic == "e" then
-	      self:_cb("on_rejected") -- TODO pass the error message
+	      local profiles = {}
+	      for i,profile in ipairs(chan0:profiles()) do
+		table.insert(profiles, profile.uri)
+	      end
+	      local ecode = chan0:error()
+	      if not ecode then
+		self:_cb("on_connected", profiles, chan0:features(), chan0:localize())
+		chan0:destroy()
+	      else
+		self:_cb("on_connect_err", chan0:error())
+		chan0:destroy()
+	      end
 	    else
-	      assert(nil, ("UNHANDLED op %s, ic %s"):format(op, ic))
+	      -- BEEP doesn't have a greeting indication, this is a bug!
+	      assert(nil, ("BUG op %s, ic %s"):format(op, ic))
 	    end
 	  elseif op == "s" then
 	    -- Start
@@ -70,7 +80,7 @@ function core:push(buffer)
 		self:_cb("on_started", chno, p.uri, p.content)
 	      else
 		assert(ecode)
-		self:_cb("on_startfailed", chno, ecode, emsg, elang)
+		self:_cb("on_start_err", chno, ecode, emsg, elang)
 	      end
 	      chan0:destroy() -- free up beepcore memory, don't wait for gc
 	    else
@@ -184,6 +194,54 @@ local function notify_upper(self, chno, op)
   end
 end
 
+--[[
+- core = swirl.session{...}
+
+TODO fail if unexpected arguments are received, to catch typos
+
+Arguments:
+  il=[I|L] whether this session is an initiator or listener, default is initiator
+
+  profile = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
+
+    TODO pluralize to "profiles"?
+
+  error = {ecode, emsg, elang}: a listener may refuse to accept a connection, providing
+    an indication why
+      ecode: error code
+      emsg: textual message, optional
+      elang: language of textual message, optional
+
+  on_connected=function(profiles, features, localize) called on successful greeting from peer
+    profiles: an array of URIs identifying the server profiles supported by the peer
+    features: a string of tokens describing optional features of the channel
+      management profile, or nil (rarely supported)
+    localize: a string of tokens describing languages preferred in textual elements of close
+      and error messages, or nil (rarely supported)
+    TODO - greeting info should be saved for later querying?
+    TODO - is it a BEEP protocol error to request a connection for an unadvertised profile?
+
+  on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
+
+  on_start=function(ch0) called with a request to start a channel, respond by
+    calling ch0:accept() or ch0:reject()
+
+  on_started=function(chno, uri, content?) called to confirm a positive response to
+    a channel start request, uri is the selected profile, and content is optional
+
+  on_start_err=function(chno, ecode, emsg, elang) called to confirm a negative response
+    to a channel start request
+
+TODO - above could be unified with signatures like:
+             on_start(chno, uri|nil, content|ecode, nil|emsg, nil|elang)
+             on_start(chno, uri|nil, { content=, ecode=, emsg=, elang=})
+             on_start(chno, profile|err)
+	       profile={uri=, content=}
+	       err={ecode=,emsg=,elang=}
+
+  on_close = function(ch0) 
+
+]]
 function session(arg)
   -- The notify callbacks need to have a reference to their core, usually self,
   -- but we haven't created it yet! Declare the variable, so they can see it
@@ -196,7 +254,8 @@ function session(arg)
     arg.il,
     nil, -- features
     nil, -- localize
-    arg.profile or {}
+    arg.profile or {},
+    arg.error
     )
 
   self._arg=arg

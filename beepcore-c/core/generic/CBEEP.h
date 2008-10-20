@@ -94,6 +94,7 @@ struct diagnostic {
 
 #define BLU_CHAN0_SC_START            's'
 #define BLU_CHAN0_SC_CLOSE            'c'
+#define BLU_CHAN0_SC_GREETING         'g'
 
 #define BLU_NOTEUP_FRAME	     1 /* A frame has arrived */
 #define BLU_NOTEUP_MESSAGE	     2 /* A complete frame has arrived */
@@ -361,6 +362,9 @@ struct chan0_msg {
   long message_number;
 
   char op_ic;                 /* 'i' for indication, 'c' for confirmation, 'e' for error */
+  // SR Comments are misleading. For error, ic will be 'c', and error will be
+  // set below. 'e' will never be seen here, at least not when this is returned
+  // by blu_chan0_in().
   char op_sc;                 /* 'g' for greeting, 's' for start, 'c' for close */
   struct profile * profile;   /* Incoming profiles, or one selected profile */
   struct diagnostic * error;       /* NULL, or error structure. */
