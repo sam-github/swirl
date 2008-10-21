@@ -13,9 +13,6 @@ local core = getmetatable(swirl._core(function()end, function()end))
 
 function core:_cb(cb, ...)
   --print("-> _cb "..cb, ...)
-  -- TODO callbacks might all need to take session as the first argument,
-  -- because they can't capture the session in their closure (they are passed
-  -- before the session exists)
   local fncb = self._arg[cb]
   if fncb then
     ok, msg = pcall(fncb, ...)
@@ -109,21 +106,25 @@ function core:push(buffer)
 	  self:_cb("on_"..frame:type(), frame)
 	end
       end
+    elseif op == "qempty" then
+      -- All queued outgoing frames for this channel have been written.
+      --
+      -- Useful so local side can get involved in flow control?
     elseif op == "answered" then
       -- All sent MSGs have been answered in full.
       -- (Safe to initiate close, tuning reset, etc.)
       --
       -- We need to remember this state so we know when we can close a channel.
-    elseif op == "qempty" then
-      -- All queued outgoing frames for this channel have been written.
-      --
-      -- Useful so local side can get involved in flow control?
     elseif op == "quiescent" then
       -- Channel is quiescent.
       --
       -- (Safe to confirm close, tuning reset, etc.)
       --
       -- We need to remember this state so we know when we can confirm close a channel.
+    elseif op == "windowfull" then
+      -- Receive window has filled up.
+      --
+      -- What does this mean?
     else
       assert(nil, "UNHANDLED "..op)
     end
@@ -162,17 +163,36 @@ function core:close(chno, ecode)
   return self:_chan_close(chno or 0, ecode)
 end
 
+--[[
+- msgno = core:send_msg(chno, msg)
+
+chno is the channel on which the message is being sent
+msg is the data to be sent
+
+TODO - it would be possible to allow partial send_msg, if msgno and more are provided
+]]
 function core:send_msg(chno, msg)
+  chno = tonumber(chno)
+  assert(chno and chno > 0)
   -- We are responsible for allocating message numbers, lets make them increase
   -- sequentially within a channel.
   local msgno = self._msgno[chno] or 1
-  self:_frame_send(chno, "MSG", msg, msgno)
+  self:_frame_send(chno, "MSG", msg, msgno, nil, more)
   self._msgno[chno] = msgno + 1
   return msgno
 end
 
-function core:send_rpy(chno, msgno, rpy)
-  return self:_frame_send(chno, "RPY", rpy, msgno)
+--[[
+- msgno = core:send_rpy(chno, msgno, rpy, more)
+
+chno is the channel on which the message is being sent
+msgno is the number of the msg being replied to
+rpy is the data to be sent
+more is whether there is more data to be sent in this reply, it defaults
+  to false
+]]
+function core:send_rpy(chno, msgno, rpy, more)
+  return self:_frame_send(chno, "RPY", rpy, msgno, nil, more)
 end
 
 function core:send_err(chno, msgno, err)
@@ -180,9 +200,15 @@ function core:send_err(chno, msgno, err)
 end
 
 
-local function notify_lower(lower, op)
+local function notify_lower(lower, op, ...)
   --print("["..tostring(self.core).."] cb lower "..op)
-  lower[op] = true
+  if op == "status" then
+    local status, text, chno = ...
+    lower.status = {status=status, text=text, chno=chno}
+    print("STATUS", ...)
+  else
+    lower[op] = true
+  end
 end
 
 local function notify_upper(upper, chno, op)
@@ -236,6 +262,13 @@ TODO - above could be unified with signatures like:
 	       err={ecode=,emsg=,elang=}
 
   on_close = function(ch0) 
+
+  on_closed = function()
+
+  on_close_err = 
+
+  on_msg = function(frame)
+
 ]]
 function session(arg)
   -- The notify callbacks are called during core creation, so make sure that
@@ -245,7 +278,7 @@ function session(arg)
   local upper = {}
 
   local self = swirl._core(
-    function(op) notify_lower(lower, op) end,
+    function(...) notify_lower(lower, ...) end,
     function(chno, op) notify_upper(upper, chno, op) end,
     arg.il,
     nil, -- features

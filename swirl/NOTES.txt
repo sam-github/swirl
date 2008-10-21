@@ -24,6 +24,13 @@ BUG sessions aren't being GCed until lua state is destroyed, why not?
 BUG CBEEP's API isn't const-correct, so I have to cast away const in swirl, I
 should fix CBEEP instead.
 
+TODO I think I might be able to define PRE() to throw a lua error, and perhaps
+FAULT() as well.
+
+BUG it's illegal to RPY to a MSG before the entire MSG is received, but the
+core allows this.
+
+BUG I ignore the notify_lower, but it looks like it might indicate improper api use
 
 * Terminology
 
@@ -36,6 +43,12 @@ channel
 
 Server - the peer that receives a message, or receives a request to start or
 close a channel
+
+* Flow Control
+
+Make sure that frames received in on_ handlers have :destroy() called on them
+when they have been processed. Not doing so will cause flow of messages to
+stop. This is a feature!
 
 
 * Session Establishment

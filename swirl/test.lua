@@ -7,6 +7,8 @@ local function q(t)
 end
 
 function create(arg)
+  -- map msgno to incomplete messages
+  local msg_accum = {}
   local template = {
     -- session management
     on_connected = function(profiles, features, localize)
@@ -48,7 +50,20 @@ function create(arg)
     -- message transfer
     on_msg = function(frame)
       print("... on_msg:", frame:channelno(), frame:messageno(), frame:more(), q(frame:payload()))
-      frame:session():send_rpy(frame:channelno(), frame:messageno(), frame:payload())
+      -- frame accumulation
+      local chno, msgno, more, msg = 
+        frame:channelno(), frame:messageno(), frame:more(), frame:payload()
+
+      if not msg_accum[chno] then msg_accum[chno] = {} end
+      if not msg_accum[chno][msgno] then msg_accum[chno][msgno] = "" end
+
+      msg_accum[chno][msgno] =  msg_accum[chno][msgno]..frame:payload()
+
+      if not frame:more() then
+	frame:session():send_rpy(frame:channelno(), frame:messageno(), msg_accum[chno][msgno])
+	msg_accum[chno][msgno] = nil
+      end
+
       frame:destroy()
     end,
 
@@ -311,9 +326,18 @@ chno = i:start{
 pump(i,l)
 
 assert(ok, "channel start error")
+
+
 print"\n\n=== test msg send/rpy"
 
-i = create{il="I"}
+ok = nil
+
+i = create{il="I",
+  on_rpy=function(frame)
+    print("on_rpy", frame)
+    ok = frame
+  end,
+}
 l = create{il="L"}
 
 pump(i,l)
@@ -328,6 +352,8 @@ pump(i,l)
 msgno = i:send_msg(chno, "hello, world")
 
 pump(i,l)
+
+assert(ok)
 
 
 print"\n\n=== test msg send/err"
@@ -363,6 +389,64 @@ pump(i,l)
 
 assert(ok)
 
+
+print"\n\n=== tests msg send/rpy +4K"
+
+msg = nil
+
+sz = 4097
+
+i = create{il="I",
+  on_rpy=function(frame)
+    print("on_rpy",frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
+    msg = msg..frame:payload()
+    saveframe = frame
+  end,
+}
+
+do
+  local msg = ""
+  l = create{il="L",--[[
+    on_msg = function(frame)
+      print("on_msg:", frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
+      msg = msg..frame:payload()
+      if not frame:more() then
+	frame:session():send_rpy(frame:channelno(), frame:messageno(), msg)
+      end
+      frame:destroy()
+    end,]]
+  }
+end
+
+pump(i,l)
+
+chno = i:start{profiles={{uri="http://example.org/beep/echo"}}}
+
+pump(i,l)
+
+print("=sz "..sz)
+
+local sent = ("x"):rep(sz)
+
+msgno = i:send_msg(chno, sent)
+
+msg = ""
+
+pump(i,l)
+
+print("+destroy frame")
+
+saveframe:destroy()
+
+pump(i,l)
+
+if sent ~= msg  then
+  print("send", #sent, "recv", #msg)
+end
+
+assert(msg == sent)
+
+
 print"\n\n=== garbage collect"
 
 i = nil
@@ -370,5 +454,7 @@ l = nil
 
 collectgarbage()
 
+
 print"\n\n=== done"
+
 

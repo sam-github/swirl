@@ -480,12 +480,24 @@ static lua_State* core_get_cb(struct session* s, const char* name)
   return L;
 }
 
+static void core_push_status(lua_State* L, struct session* s)
+{
+  int status =  bll_status(s);
+  const char* text = bll_status_text(s);
+  int chno = bll_status_channel(s);
+
+  lua_pushinteger(L, status);
+  v_pushstringornil(L, text);
+  lua_pushinteger(L, chno);
+}
+
 static void notify_lower_cb(struct session* s, int op)
 {
   static const char* opstr[] = { NULL, "status", "inready", "outready" };
   lua_State* L = core_get_cb(s, "notify_lower");
   lua_pushstring(L, opstr[op]);
-  v_pcall(L, "swirl notify_lower", 1, 0);
+  core_push_status(L, s);
+  v_pcall(L, "swirl notify_lower", 4, 0);
 }
 
 static void notify_upper_cb( struct session * s, long chno, int op)
@@ -802,7 +814,6 @@ Low-level frame sending... not to be used directly!
 static int core_frame_send(lua_State* L)
 {
   static const char* msgtypes[] = { "MSG", "RPY", "ANS", "NUL", "ERR", NULL };
-  static const char* mores[] = { "*", ".", NULL };
   Core c = luaL_checkudata(L, 1, CORE_REGID);
   int chno = luaL_checkint(L, 2);
   char msgtype = *msgtypes[luaL_checkoption(L, 3, NULL, msgtypes)];
@@ -810,7 +821,7 @@ static int core_frame_send(lua_State* L)
   const char* msg = luaL_checklstring(L, 4, &msgsz);
   int msgno = luaL_optinteger(L, 5, -1);
   int ansno = luaL_optinteger(L, 6, -1);
-  char more = *mores[luaL_checkoption(L, 7, ".", mores)];
+  char more = lua_toboolean(L, 7) ? '*' : '.';
 
   struct frame* f = blu_frame_create(c->s, msgsz);
 
@@ -830,14 +841,7 @@ static int core_frame_send(lua_State* L)
 static int core_status(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
-  int status =  bll_status(c->s);
-  const char* text = bll_status_text(c->s);
-  int chno = bll_status_channel(c->s);
-
-  lua_pushinteger(L, status);
-  v_pushstringornil(L, text);
-  lua_pushinteger(L, chno);
-
+  core_push_status(L, c->s);
   return 3;
 }
 
