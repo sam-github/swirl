@@ -83,11 +83,13 @@ function create(arg)
   return swirl.session(template)
 end
 
-function pump(i, l)
+function pump(i, l, quiet)
   local function pullpush(from, to)
     local b = from:pull()
     if b then
-      print("-- "..from._arg.il.." to "..to._arg.il.."\n"..b.."--")
+      if not quiet then
+	print("-- "..from._arg.il.." to "..to._arg.il.."\n"..b.."--")
+      end
       to:push(b)
     end
     return b
@@ -404,19 +406,7 @@ i = create{il="I",
   end,
 }
 
-do
-  local msg = ""
-  l = create{il="L",--[[
-    on_msg = function(frame)
-      print("on_msg:", frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
-      msg = msg..frame:payload()
-      if not frame:more() then
-	frame:session():send_rpy(frame:channelno(), frame:messageno(), msg)
-      end
-      frame:destroy()
-    end,]]
-  }
-end
+l = create{il="L"}
 
 pump(i,l)
 
@@ -445,6 +435,7 @@ if sent ~= msg  then
 end
 
 assert(msg == sent)
+
 
 
 print"\n\n=== garbage collect"

@@ -1,3 +1,4 @@
+#!/usr/bin/env lua
 --[[
 benchmark comparing single channel msg/rpy over beep with similar over tcp
 

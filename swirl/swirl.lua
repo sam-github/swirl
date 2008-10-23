@@ -133,7 +133,7 @@ end
 
 --[[
 - chno = session:start(URI, ...)
-- chno = session:start{profiles={URI, ...}, [servername=STR], [chno=NUM]}
+- chno = session:start{profiles={uri=URI, ...}, [servername=STR], [chno=NUM]}
 
 Profiles is a list of URIs identifying profiles desired.
 
