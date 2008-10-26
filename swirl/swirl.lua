@@ -296,3 +296,40 @@ function session(arg)
   return self
 end
 
+--[[
+Reply codes from section 8 of RFC3080.
+
+Some short hands are provided, but I'm not sure what short readable names I can
+provide for the others. Suggestions?
+]]
+ecodes = {
+  [200] = "success",
+  ok = 200,
+
+  [421] = "service not available",
+  unavailable = 421,
+  [450] = "requested action not taken", -- (e.g., lock already in use)
+  [451] = "requested action aborted", -- (e.g., local error in processing)
+  [454] = "temporary authentication failure",
+
+  [500] = "general syntax error", -- (e.g., poorly-formed XML)
+  [501] = "syntax error in parameters", -- (e.g., non-valid XML)
+  invalidparam = 501,
+  [504] = "parameter not implemented",
+  [530] = "authentication required",
+  [534] = "authentication mechanism insufficient", -- (e.g., too weak, sequence exhausted, etc.)
+  [535] = "authentication failure",
+  [537] = "action not authorized for user",
+  [538] = "authentication mechanism requires encryption",
+  [550] = "requested action not taken", -- (e.g., no requested profiles are acceptable)
+  [553] = "parameter invalid",
+  [554] = "transaction failed", -- (e.g., policy violation)
+}
+
+--[[
+When receiving TCP fragments from a socket, it is recommended to try to read at
+least BUFSZ data at a time.
+]]
+-- Largest read should be default window size, plus largest BEEP line * 2.
+BUFSZ = 4096 + 2 * #"ANS 2147483647 2147483647 . 4294967295 2147483647 2147483647\r\n"
+
