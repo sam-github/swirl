@@ -1,0 +1,157 @@
+#!/usr/bin/env lua
+
+require"quote"
+require"socket"
+require"sockext"
+require"swirl"
+
+
+-- Setup
+
+loop = sockext.loop
+
+q = quote.quote
+
+URI = "http://example.com/beep/chat"
+
+USAGE = "usage: "..arg[0].." <port>"
+
+port = assert(tonumber(arg[1]), "no port\n"..USAGE)
+
+
+-- Chat server
+
+sessions = {}
+
+function start(sess, chno, content)
+  if not content then
+    return swirl.ecodes.invalidparam, URI.." requires start content to be the user name"
+  elseif sess.user then
+    return swirl.ecodes.invalidparam, URI.." only allows one channel per session"
+  else
+    print("..start", q(content))
+    sess.user = content
+    -- also need to remember the channel
+  end
+end
+
+function stop(sess, chno)
+  -- shut tcp connection if chno == 0
+  -- deregister session user
+end
+
+function msg(sess, payload)
+  for k,other in pairs(sessions) do
+    if other ~= sess then
+      print(".. forward@", q(other.user))
+      local chno = 1 -- find the channel, if it's started
+      other:send_msg(chno, "From: "..sess.user.."\r\n\r\n"..payload)
+    end
+  end
+end
+
+
+-- Bind swirl to chat server
+
+local chat = {il="L", profiles = {URI}}
+
+function chat.on_start(ch0)
+  print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
+  -- TODO the following is common code, factor it out
+  local p
+  for i, profile in pairs(ch0:profiles()) do
+    if profile.uri == URI then
+      p = profile
+      break
+    end
+  end
+  if not p then
+    ch0:reject(swirl.ecodes.unavailable)
+    return
+  end
+
+  local sess = ch0:session()
+  local ecode, emsg = start(sess, ch0:channelno(), p.content)
+  if ecode then
+    ch0:reject(ecode, emsg)
+  else
+    ch0:accept(p.uri)
+  end
+end
+
+function chat.on_close(ch0)
+  local chno = ch0:channelno()
+  local sess = ch0:session()
+  local ecode, emsg, elang = ch0:error()
+  print("... on_close:", chno, ecode, q(emsg), elang)
+  ch0:accept()
+  stop(sess, chno)
+end
+
+function chat.on_msg(frame)
+  print("... on_msg:", frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
+  local sess = frame:session()
+  if not frame:more() then
+    sess:send_rpy(frame:channelno(), frame:messageno(), "")
+  end
+
+  -- FIXME here we ignore partials, which is broken, we need msg
+  -- accumulation, or rejection of messages larger than a fixed size.
+  msg(sess, frame:payload())
+  frame:destroy()
+end
+
+
+-- Bind loop to swirl
+-- TODO with on_pushable and on_pullable, these lists could be managed without polling
+
+server = assert(socket.bind("*", port))
+server:settimeout(0)
+
+function accept(server)
+  print(".. accept from", server)
+  client = server:accept()
+  if not client then
+    -- oops, client died before we accepted
+  else
+    sess = swirl.session(chat)
+    sessions[client] = sess
+    loop.receive(client, receive)
+    loop.send(client, send)
+  end
+end
+
+function send(client)
+  sess = sessions[client]
+  local data = sess:pull()
+  if data then
+    sz = client:send(data)
+    -- do we ever get partial sends?
+    -- sess:pulled(sz)
+  else
+    -- nothing else to send, for now
+    loop.send(client)
+  end
+end
+
+function receive(client)
+  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  if data then
+    sessions[client]:push(data)
+    -- NOTE sess might be pullable now
+    --   ... actually, any session might be pullable
+    for sock,sess in pairs(sessions) do
+      loop.send(sock, send)
+    end
+  elseif emsg == "timeout" then
+    -- ignore
+  else
+    -- close this session
+    loop.receive(client)
+    loop.send(client)
+  end
+end
+
+loop.receive(server, accept)
+loop.start()
+
