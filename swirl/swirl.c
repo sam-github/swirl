@@ -757,10 +757,12 @@ static struct profile* core_build_profiles(lua_State* L, int idx)
     p->piggyback = (char*) lua_tolstring(L, -1, &sz);
     p->piggyback_length = sz;
     lua_pop(L, 1);
-
+/*
+Supposed to be handled internal to beepcore, though I think that handling is buggy.
     lua_getfield(L, -1, "encoded");
     p->encoding = lua_toboolean(L, -1);
     lua_pop(L, 1);
+*/
   }
 
   return pbuf;

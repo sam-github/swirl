@@ -39,9 +39,9 @@ function core:push(buffer)
       if chno == 0 then
 	local chan0 = self:_chan0_read()
 	if chan0 then
-	  print(tostring(chan0))
+	  --print(tostring(chan0))
 	  local ic, op = chan0:op()
-	  print("op "..op.." ic "..ic)
+	  --print("op "..op.." ic "..ic)
 
 	  if op == "g" then
 	    -- Greeting
@@ -132,20 +132,32 @@ function core:push(buffer)
 end
 
 --[[
-- chno = session:start(URI, ...)
-- chno = session:start{profiles={uri=URI, ...}, [servername=STR], [chno=NUM]}
+- chno = session:start(URI[, content=STR])
 
-Profiles is a list of URIs identifying profiles desired.
+Start a channel with profile URI, and optional content.
 
-Should be an easy way of calling for the common case:
-1 - just a single URI
-2 - a single URI, with payload data
-3 - fully parameterized, multiple profiles w/payload, servername, chno, etc.
+- chno = session:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
+
+Start a channel with one of a set of profiles, an optional servername, and an
+optional channel number.
+
+TODO just make the arguments positional...
 
 BEEP calls this start and close. Too bad, I think it should be open and close, or
 start and stop!
 ]]
-function core:start(arg)
+function core:start(...)
+  local arg, content = ...
+  if type(arg) == "string" then
+    arg = {
+      profiles = {
+	{uri=arg, content=content}
+      }
+    }
+  else
+    assert(not content, "invalid extra argument")
+  end
+
   return self:_chan_start(arg.profiles, arg.servername, arg.channelno)
 end
 
