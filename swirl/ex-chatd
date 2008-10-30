@@ -16,48 +16,64 @@ URI = "http://example.com/beep/chat"
 
 USAGE = "usage: "..arg[0].." <port>"
 
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+end
+
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 
 
--- Chat server
+-- Chat server:
 
 sessions = {}
 
-function start(sess, chno, content)
-  if not content then
-    return swirl.ecodes.invalidparam, URI.." requires start content to be the user name"
+function join(sess, chno, name)
+  if not name then
+    return swirl.ecodes.invalidparam, "chat content is not the name"
   elseif sess.user then
-    return swirl.ecodes.invalidparam, URI.." only allows one channel per session"
+    return swirl.ecodes.invalidparam, "chatting already"
   else
-    print("..start", q(content))
-    sess.user = content
-    -- also need to remember the channel
+    print("ADD USER", q(name))
+    sess.user = { name = name, chno = chno }
   end
 end
 
-function stop(sess, chno)
-  -- shut tcp connection if chno == 0
-  -- deregister session user
+function leave(sess, chno)
+  print("DROP USER", q(sess.user.name))
+  speak(sess, "bye!")
+  sess.user = nil
 end
 
-function msg(sess, payload)
+function speak(sess, payload, more)
+  sess.user.msg = (sess.user.msg or "")..payload
+
+  if more then
+    print("MSG FROM", sess.user.name, "...")
+    return
+  end
+
+  print("MSG FROM", sess.user.name)
+  print(sess.user.msg)
+
+  -- send msg to all sessions other than ours
   for k,other in pairs(sessions) do
     if other ~= sess then
-      print(".. forward@", q(other.user))
-      local chno = 1 -- find the channel, if it's started
-      other:send_msg(chno, "From: "..sess.user.."\r\n\r\n"..payload)
+      print("@", q(other.user.name))
+      other:send_msg(other.user.chno, sess.user.name.." says "..q(sess.user.msg))
     end
   end
+
+  sess.user.msg = nil
 end
 
 
 -- Bind swirl to chat server
 
-local chat = {il="L", profiles = {URI}}
+chat = {il="L", profiles = {URI}}
 
 function chat.on_start(ch0)
-  print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
-  -- TODO the following is common code, factor it out
+  print(".. on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
   local p
   for i, profile in pairs(ch0:profiles()) do
     if profile.uri == URI then
@@ -70,8 +86,8 @@ function chat.on_start(ch0)
     return
   end
 
-  local sess = ch0:session()
-  local ecode, emsg = start(sess, ch0:channelno(), p.content)
+  local ecode, emsg = join(ch0:session(), ch0:channelno(), p.content)
+
   if ecode then
     ch0:reject(ecode, emsg)
   else
@@ -80,27 +96,38 @@ function chat.on_start(ch0)
 end
 
 function chat.on_close(ch0)
-  local chno = ch0:channelno()
-  local sess = ch0:session()
   local ecode, emsg, elang = ch0:error()
-  print("... on_close:", chno, ecode, q(emsg), elang)
+  print(".. on_close:", ch0:session(), ch0:channelno(), ecode, q(emsg), elang)
+
+  leave(ch0:session())
+
   ch0:accept()
-  stop(sess, chno)
+  -- FIXME shut tcp connection if chno == 0?
+  --    No, not yet, but when? We have to wait until everything is quiet?
 end
 
 function chat.on_msg(frame)
-  print("... on_msg:", frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
-  local sess = frame:session()
+  local sess, more, payload = frame:session(), frame:more(), frame:payload()
+  print(".. on_msg:", sess, frame:channelno(), frame:messageno(), more, #payload)
+
+  speak(sess, payload, more)
+
   if not frame:more() then
     sess:send_rpy(frame:channelno(), frame:messageno(), "")
   end
 
-  -- FIXME here we ignore partials, which is broken, we need msg
-  -- accumulation, or rejection of messages larger than a fixed size.
-  msg(sess, frame:payload())
   frame:destroy()
 end
 
+function chat.on_pullable(sess)
+  print(".. on_pullable", q(sess))
+  loop.send(sess.client, send)
+end
+
+function chat.on_pushable(sess)
+  print(".. on_pushable", q(sess))
+  loop.receive(sess.client, receive)
+end
 
 -- Bind loop to swirl
 -- TODO with on_pushable and on_pullable, these lists could be managed without polling
@@ -109,13 +136,14 @@ server = assert(socket.bind("*", port))
 server:settimeout(0)
 
 function accept(server)
-  print(".. accept from", server)
+  print(".. accept from", q(server))
   client = server:accept()
   if not client then
     -- oops, client died before we accepted
   else
     sess = swirl.session(chat)
-    sessions[client] = sess
+    sess.client = client
+    sessions[client] = sess -- I can't index socket userdata, so map externally.
     loop.receive(client, receive)
     loop.send(client, send)
   end
@@ -123,26 +151,51 @@ end
 
 function send(client)
   sess = sessions[client]
+
   local data = sess:pull()
-  if data then
-    sz = client:send(data)
-    -- do we ever get partial sends?
-    -- sess:pulled(sz)
-  else
-    -- nothing else to send, for now
+
+  if not data then
     loop.send(client)
+    return
+  end
+
+  if verbose then
+    print"--- I < L"
+    print(data)
+    print"---"
+  end
+
+  local sz, emsg = client:send(data)
+
+  if sz then
+    sess:pulled(sz)
+  else
+    print("DEATH of client", emsg)
+    -- FIXME how to deal with this?
   end
 end
 
 function receive(client)
   local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
   if data then
-    sessions[client]:push(data)
-    -- NOTE sess might be pullable now
-    --   ... actually, any session might be pullable
-    for sock,sess in pairs(sessions) do
-      loop.send(sock, send)
+    if verbose then
+      print"--- I > L"
+      print(data)
+      print"---"
     end
+    local ok, emsg = sessions[client]:push(data)
+
+    if not ok then
+      local eno, emsg, echan = sessions[client]:status()
+      print("ERROR", eno, emsg, echan)
+    end
+
+-- FIXME
+--  -- NOTE sess might be pullable now
+--  --   ... actually, any session might be pullable
+--  for sock,sess in pairs(sessions) do
+--    loop.send(sock, send)
+--  end
   elseif emsg == "timeout" then
     -- ignore
   else

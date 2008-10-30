@@ -90,7 +90,9 @@ function pump(i, l, quiet)
       if not quiet then
 	print("-- "..from._arg.il.." to "..to._arg.il.."\n"..b.."--")
       end
-      to:push(b)
+      assert(to:push(b))
+
+      from:pulled(#b)
     end
     return b
   end

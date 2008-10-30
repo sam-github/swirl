@@ -23,13 +23,22 @@ function core:_cb(cb, ...)
 end
 
 function core:pull()
-  self._lower.outready = false
   return self:_pull()
+end
+
+function core:pulled(sz)
+  self._lower.outready = false
+  return self:_pulled(sz)
 end
 
 function core:push(buffer)
   self._lower.inready = nil
-  self:_push(buffer)
+
+  local ok, emsg = self:_push(buffer)
+
+  if not ok then
+    return nil, emsg
+  end
 
   -- process upper layer...
   while #self._upper > 0 do
@@ -129,6 +138,8 @@ function core:push(buffer)
       assert(nil, "UNHANDLED "..op)
     end
   end
+
+  return true
 end
 
 --[[
@@ -212,14 +223,20 @@ function core:send_err(chno, msgno, err)
 end
 
 
+local opcb = {inready = "on_pushable", outready="on_pullable"}
 local function notify_lower(lower, op, ...)
-  --print("["..tostring(self.core).."] cb lower "..op)
+  -- print("...notify_lower", q(lower.self), q(op))
   if op == "status" then
     local status, text, chno = ...
     lower.status = {status=status, text=text, chno=chno}
-    print("STATUS", ...)
+    -- TODO deal with this... in the meantime, print them
+    print("STATUS?", ...)
   else
     lower[op] = true
+  end
+  local cb = opcb[op]
+  if cb and lower.self then
+    lower.self:_cb(cb, lower.self)
   end
 end
 
@@ -230,8 +247,6 @@ end
 
 --[[
 - core = swirl.session{...}
-
-TODO fail if unexpected arguments are received, to catch typos
 
 Arguments:
   il=[I|L] whether this session is an initiator or listener, default is initiator
@@ -246,7 +261,7 @@ Arguments:
       emsg: textual message, optional
       elang: language of textual message, optional
 
-  on_connected=function(profiles, features, localize) called on successful greeting from peer
+  on_connected=function(profiles, features, localize): called on successful greeting from peer
     profiles: an array of URIs identifying the server profiles supported by the peer
     features: a string of tokens describing optional features of the channel
       management profile, or nil (rarely supported)
@@ -257,37 +272,39 @@ Arguments:
 
   on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
 
-  on_start=function(ch0) called with a request to start a channel, respond by
+  on_start=function(ch0): called with a request to start a channel, respond by
     calling ch0:accept() or ch0:reject()
 
-  on_started=function(chno, uri, content?) called to confirm a positive response to
+  on_started=function(chno, uri, content?): called to confirm a positive response to
     a channel start request, uri is the selected profile, and content is optional
 
-  on_start_err=function(chno, ecode, emsg, elang) called to confirm a negative response
+  on_start_err=function(chno, ecode, emsg, elang): called to confirm a negative response
     to a channel start request
 
-TODO - above could be unified with signatures like:
-             on_start(chno, uri|nil, content|ecode, nil|emsg, nil|elang)
-             on_start(chno, uri|nil, { content=, ecode=, emsg=, elang=})
-             on_start(chno, profile|err)
-	       profile={uri=, content=}
-	       err={ecode=,emsg=,elang=}
+  on_close = function(ch0):
 
-  on_close = function(ch0) 
+  on_closed = function():
 
-  on_closed = function()
+  on_close_err = :
 
-  on_close_err = 
+  on_msg = function(frame):
 
-  on_msg = function(frame)
+
+  on_pullable = function(sess): data is available via :pull(). Note carefully that no
+    swirl calls may be made in this function. It is useful to adjust the select/poll
+    set, for example, or to unblock a thread reading from the session, and writing to
+    the peer. Sessions are always pullable after creation.
+
+  on_pushable = function(sess): space is available for data to be :push()ed. The same
+    notes as above apply to this callback. Sessions are always pushable after creation.
 
 ]]
 function session(arg)
   -- The notify callbacks are called during core creation, so make sure that
   -- they have a place to put their notifications before the core is returned
   -- to us.
-  local lower = {}
-  local upper = {}
+  local lower = { }
+  local upper = { }
 
   local self = swirl._core(
     function(...) notify_lower(lower, ...) end,
@@ -298,6 +315,10 @@ function session(arg)
     arg.profile or {},
     arg.error
     )
+
+  -- so notifications can reach the session if they need to
+  lower.self = self
+  upper.self = self
 
   self._arg=arg
   self._lower = lower -- lower layer notifications, op=true when pending

@@ -488,7 +488,10 @@ static void core_push_status(lua_State* L, struct session* s)
 
   lua_pushinteger(L, status);
   v_pushstringornil(L, text);
-  lua_pushinteger(L, chno);
+  if(chno >= 0)
+    lua_pushinteger(L, chno);
+  else
+    lua_pushnil(L);
 }
 
 static void notify_lower_cb(struct session* s, int op)
@@ -665,9 +668,17 @@ static int core_pull(lua_State* L)
   if(!sz)
     return 0;
 
+  return 1;
+}
+
+static int core_pulled(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int sz = luaL_optinteger(L, 2, 0);
+
   bll_out_count(c->s, sz);
 
-  return 1;
+  return 0;
 }
 
 static size_t min(size_t a, size_t b)
@@ -689,6 +700,13 @@ static int core_push(lua_State* L)
     struct beep_iovec* biv = bll_in_buffer(c->s);
     const char* beg = buf;
     int i;
+
+    if(!biv) {
+      lua_pushnil(L);
+      lua_pushstring(L, bll_status_text(c->s));
+      return 2;
+    }
+
     for(i = 0; i < biv->vec_count && buf < end; i++) {
       struct iovec* v = &biv->iovec[i];
       int tocopy = min(v->iov_len, end - buf);
@@ -699,7 +717,9 @@ static int core_push(lua_State* L)
     bll_in_count(c->s, buf-beg);
   }
 
-  return 0;
+  lua_pushboolean(L, 1);
+
+  return 1;
 }
 
 static int core_frame_read(lua_State* L)
@@ -889,6 +909,7 @@ static const struct luaL_reg core_methods[] = {
   { "__gc",               core_gc },
   { "__tostring",         core_tostring },
   { "_pull",              core_pull },
+  { "_pulled",            core_pulled },
   { "_push",              core_push },
   { "_frame_read",        core_frame_read },
   { "_chan0_read",        core_chan0_read },

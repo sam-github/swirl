@@ -15,10 +15,17 @@ URI = "http://example.com/beep/chat"
 
 USAGE = "usage: "..arg[0].." <port> [host]"
 
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+end
+
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 host = arg[2] or "localhost"
 
-local print = function () end
+if not verbose then
+  print = function () end
+end
 
 io.stdout:setvbuf"no"
 
@@ -63,11 +70,10 @@ function send(client)
   print("..send")
   local data = sess:pull()
   if not data then
-    -- not interested in the send event
     loop.send(client)
   else
-    -- FIXME - partial sends?
-    client:send(data)
+    local sz = assert(client:send(data))
+    sess:pulled(sz)
   end
 end
 
