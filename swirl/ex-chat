@@ -29,7 +29,6 @@ end
 
 io.stdout:setvbuf"no"
 
-
 local file
 local client
 local sess
@@ -37,11 +36,11 @@ local sess
 -- We handle 3 loop events: receive/send on client, and receive on file.
 
 function read(file)
-  print("..read", q(line))
+  print(".. read", q(line))
   local line = io.read"*l"
   if not line then
     -- end of chat
-    sess:close(chno)
+    sess:close(0)
     loop.receive(file)
   else
     sess:send_msg(chno, line)
@@ -52,7 +51,7 @@ function read(file)
 end
 
 function receive(client)
-  print("..receive")
+  print(".. receive")
   local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
   if data then
     sess:push(data)
@@ -67,7 +66,7 @@ function receive(client)
 end
 
 function send(client)
-  print("..send")
+  print(".. send")
   local data = sess:pull()
   if not data then
     loop.send(client)
@@ -80,12 +79,12 @@ end
 local chat = {il="I"}
 
 function chat.on_connected()
-  print("..connected")
+  print(".. connected")
   sess:start(URI, os.getenv"USER" or "anonymous")
 end
 
 function chat.on_started(_chno)
-  print("..started", _chno)
+  print(".. started", _chno)
   chno = _chno
   -- ready to start reading
   --io.stdout:write"> "
@@ -97,12 +96,12 @@ function chat.on_start_err(chno, ecode, emsg, elang)
 end
 
 function chat.on_closed()
-  print("..closed")
+  print(".. closed")
   os.exit(0)
 end
 
 function chat.on_msg(frame)
-  print("..on_msg", frame, q(frame:payload()))
+  print(".. on_msg", frame, q(frame:payload()))
   local out = frame:payload()
   out = out:gsub("\r", "")
   out = out:gsub("\n", "\n| ")
@@ -110,6 +109,11 @@ function chat.on_msg(frame)
   if not frame:more() then
     sess:send_rpy(frame:channelno(), frame:messageno(), "")
   end
+end
+
+function chat.on_pullable(sess)
+  print(".. on_pullable")
+  loop.send(client, send)
 end
 
 file = sockext.selectable(0)

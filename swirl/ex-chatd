@@ -58,7 +58,7 @@ function speak(sess, payload, more)
 
   -- send msg to all sessions other than ours
   for k,other in pairs(sessions) do
-    if other ~= sess then
+    if other ~= sess  and other.user then
       print("@", q(other.user.name))
       other:send_msg(other.user.chno, sess.user.name.." says "..q(sess.user.msg))
     end
@@ -102,6 +102,7 @@ function chat.on_close(ch0)
   leave(ch0:session())
 
   ch0:accept()
+
   -- FIXME shut tcp connection if chno == 0?
   --    No, not yet, but when? We have to wait until everything is quiet?
 end
@@ -189,13 +190,6 @@ function receive(client)
       local eno, emsg, echan = sessions[client]:status()
       print("ERROR", eno, emsg, echan)
     end
-
--- FIXME
---  -- NOTE sess might be pullable now
---  --   ... actually, any session might be pullable
---  for sock,sess in pairs(sessions) do
---    loop.send(sock, send)
---  end
   elseif emsg == "timeout" then
     -- ignore
   else
