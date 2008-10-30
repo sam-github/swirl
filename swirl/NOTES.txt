@@ -30,7 +30,10 @@ FAULT() as well.
 BUG it's illegal to RPY to a MSG before the entire MSG is received, but the
 core allows this.
 
-BUG I ignore the notify_lower, but it looks like it might indicate improper api use
+BUG I ignore the notify_lower status change, but it looks like it might indicate improper api use
+
+TODO no callbacks include session. because you can arrange for a function to
+have it in it's closure, it's never necessary, but is this annoying?
 
 * Terminology
 
