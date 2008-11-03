@@ -805,9 +805,19 @@ static int core_chan_start(lua_State* L)
    */
   long chno = blu_channel_start(c->s, &chan0);
 
+  if(bll_status(c->s)) {
+    lua_pushnil(L);
+    lua_pushstring(L, bll_status_text(c->s));
+    return 2;
+  }
+
+  /*
   if(chno < 0)
     return luaL_error(L, "failed to start channel #%d, profile %s...",
 	chan0.channel_number, chan0.profile->uri);
+  */
+
+  assert(chno > 0);
 
   lua_pushinteger(L, chno);
 
@@ -867,6 +877,18 @@ static int core_status(lua_State* L)
   return 3;
 }
 
+static int core_chan_status(lua_State* L)
+{
+  static const char* opstr[] = { "closed", "hopen", "hclosed", "busy", "answered", "quiescent" };
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int chno = luaL_checkint(L, 2);
+  int status = blu_channel_status(c->s, chno);
+
+  lua_pushstring(L, opstr[status]);
+
+  return 1;
+}
+
 /* Allow a userdata to be indexed, but searching for keys first in it's
  * environment (specific to this userdata) and next in its metatable (generic
  * to this userdata's "type").
@@ -917,6 +939,7 @@ static const struct luaL_reg core_methods[] = {
   { "_chan_close",        core_chan_close },
   { "_frame_send",        core_frame_send },
   { "status",             core_status },
+  { "chan_status",        core_chan_status },
   { NULL, NULL }
 };
 
