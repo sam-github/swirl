@@ -6,13 +6,19 @@ local function q(t)
   return serialize(t)
 end
 
+local function c(s)
+  if not s then return "[]" end
+  return "["..tostring(s).."+"..s._arg.il.."]"
+end
+
 function create(arg)
   -- map msgno to incomplete messages
   local msg_accum = {}
   local template = {
     -- session management
     on_connected = function(profiles, features, localize)
-      print("...on_connected", q(profiles), q(features), q(localize))
+      -- FIXME need session passed as arg
+      print(c(nil), "...on_connected", q(profiles), q(features), q(localize))
     end,
 
     on_connect_err = function(...)
@@ -21,7 +27,7 @@ function create(arg)
 
     -- channel management
     on_start = function(ch0)
-      print("... on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
+      print(c(ch0:session()), "on_start", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
 
       -- accept the first of the requested profiles
       local p = ch0:profiles()[1]
@@ -29,17 +35,17 @@ function create(arg)
     end,
 
     on_started = function(chno, uri, content)
-      print("... on_started:", chno, uri, q(content))
+      print(c(nil), "on_started", chno, uri, q(content))
     end,
 
     on_start_err = function(chno, ecode, emsg, elang)
-      print("... on_start_err:", chno, ecode, q(emsg), elang)
+      print(c(nil), "on_start_err", chno, ecode, q(emsg), elang)
     end,
 
     on_close = function(ch0)
       local chno = ch0:channelno()
       local ecode, emsg, elang = ch0:error()
-      print("... on_close:", chno, ecode, q(emsg), elang)
+      print(c(ch0:session()), "..on_close", chno, ecode, q(emsg), elang)
       ch0:accept()
     end,
 
@@ -90,9 +96,12 @@ function pump(i, l, quiet)
       if not quiet then
 	print("-- "..from._arg.il.." to "..to._arg.il.."\n"..b.."--")
       end
+      from:pulled(#b)
+      print(c(from), "@status0", from:chan_status(0))
+
       assert(to:push(b))
 
-      from:pulled(#b)
+      print(c(to), "@status0", to:chan_status(0))
     end
     return b
   end
@@ -229,16 +238,31 @@ l = create{il="L"}
 
 pump(i,l)
 
+print(c(i), "..status", i:status())
+print(c(l), "..status", l:status())
+print"close"
+
 i:close(0)
 
 pump(i,l)
 
+print(c(i), "..status", i:status())
+print(c(l), "..status", l:status())
+
 -- check that the session is now not working
-chno = i:start{
+chno, emsg = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
 
+print("start on closed", chno, emsg);
+
+assert(not chno and emsg)
+
 pump(i,l)
+
+ecode = i:status()
+
+assert(ecode == 7)
 
 
 print"\n\n=== test session close/err"

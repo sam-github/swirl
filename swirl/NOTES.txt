@@ -33,7 +33,18 @@ core allows this.
 BUG I ignore the notify_lower status change, but it looks like it might indicate improper api use
 
 TODO no callbacks include session. because you can arrange for a function to
-have it in it's closure, it's never necessary, but is this annoying?
+have it in it's closure, it's never necessary, but is this annoying? Yes!
+
+BUG I don't see how to know when a session is quiescent, how to know when to close the socket.
+
+    CBEEP.c:2344: /* Don't destroy channel 0 - wait for channel 0 status of 5 - then session destroy */
+
+  But... chan0 never gets quiescent! WTF? Where does quiescent get set, but not qempty?
+
+  I think that as soon as the closer of channel zero gets an affirmative reply,
+  it closes. It shouldn't have asked if its not willing, and the server
+  shouldn't have accepted if it wasn't willing to close all its connections.
+
 
 * Terminology
 

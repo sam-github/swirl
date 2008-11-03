@@ -9,6 +9,11 @@ local swirl = require"swirl.core"
 
 module("swirl", package.seeall)
 
+local function c(s)
+  if not s then return "[]" end
+  return "["..tostring(s).."+"..s._arg.il.."]"
+end
+
 local core = getmetatable(swirl._core(function()end, function()end))
 
 function core:_cb(cb, ...)
@@ -23,16 +28,20 @@ function core:_cb(cb, ...)
 end
 
 function core:pull()
+  -- print(c(self), "pull")
   return self:_pull()
 end
 
 function core:pulled(sz)
+  -- print(c(self), "pulled", sz)
   self._lower.outready = false
   return self:_pulled(sz)
 end
 
 function core:push(buffer)
   self._lower.inready = nil
+
+  -- print(c(self), "push sz=", #buffer, "upper sz=", #self._upper)
 
   local ok, emsg = self:_push(buffer)
 
@@ -42,8 +51,8 @@ function core:push(buffer)
 
   -- process upper layer...
   while #self._upper > 0 do
-    local chno, op = unpack(table.remove(self._upper))
-    --print("  upper ch#"..chno.." "..op)
+    local chno, op = unpack(table.remove(self._upper, 1))
+    -- print(c(self), "do upper ch#", chno, op)
     if op == "frame" or op == "message" then
       if chno == 0 then
 	local chan0 = self:_chan0_read()
@@ -83,9 +92,11 @@ function core:push(buffer)
 		-- blu_chan0_in() docs indicate there may be an error, too, I think that would
 		-- just happen if the RPY content contained xml that looked like <error>, but
 		-- I'm going to leave content decoding to the caller, and not try and return it.
+		-- FIXME - first argument has to be self!
 		self:_cb("on_started", chno, p.uri, p.content)
 	      else
 		assert(ecode)
+		-- FIXME - first argument has to be self!
 		self:_cb("on_start_err", chno, ecode, emsg, elang)
 	      end
 	      chan0:destroy() -- free up beepcore memory, don't wait for gc
@@ -224,14 +235,15 @@ end
 
 
 local opcb = {inready = "on_pushable", outready="on_pullable"}
+
 local function notify_lower(lower, op, ...)
-  -- print("...notify_lower", q(lower.self), q(op))
   if op == "status" then
     local status, text, chno = ...
-    lower.status = {status=status, text=text, chno=chno}
     -- TODO deal with this... in the meantime, print them
-    print("STATUS?", ...)
+    -- print(c(lower.self), "notify lower", op, status, text, chno)
+    lower.status = {status=status, text=text, chno=chno}
   else
+    -- print(c(lower.self), "notify lower", op)
     lower[op] = true
   end
   local cb = opcb[op]
@@ -241,7 +253,7 @@ local function notify_lower(lower, op, ...)
 end
 
 local function notify_upper(upper, chno, op)
-  --print("["..tostring(self.core).."] cb upper ch#"..chno.." "..op)
+  -- print(c(upper.self), "notify upper ch#", chno, op)
   table.insert(upper, {chno, op})
 end
 
@@ -358,6 +370,22 @@ ecodes = {
   [553] = "parameter invalid",
   [554] = "transaction failed", -- (e.g., policy violation)
 }
+--[[ TODO use short names based on these?
+#define BEEP_REPLY_SUCESS          200
+#define BEEP_REPLY_NOT_TAKEN       450
+#define BEEP_REPLY_ABORTED         451
+#define BEEP_REPLY_AUTH_FAIL_TEMP  454
+#define BEEP_REPLY_ERR_SYNTAX      500
+#define BEEP_REPLY_ERR_PARAM       501
+#define BEEP_REPLY_PARAM_NOT_IMPL  504
+#define BEEP_REPLY_AUTH_REQD       530
+#define BEEP_REPLY_AUTH_TOOWEAK    535
+#define BEEP_REPLY_AUTH_FAILED     537
+#define BEEP_REPLY_NOT_AUTORIZED   538
+#define BEEP_REPLY_NO_ACTION       550
+#define BEEP_REPLY_INVALID_PARAM   553
+#define BEEP_REPLY_FAIL_TRANS      554
+]]
 
 --[[
 When receiving TCP fragments from a socket, it is recommended to try to read at
