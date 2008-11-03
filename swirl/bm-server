@@ -1,0 +1,71 @@
+#!/usr/bin/env lua
+--[[
+]]
+
+require"quote"
+require"socket"
+require"sockext"
+require"swirl"
+
+-- Setup
+
+loop = sockext.loop
+
+q = quote.quote
+
+NULL = "http://example.com/beep/null"
+ECHO = "http://example.com/beep/null"
+
+USAGE = "usage: "..arg[0].." [-v] <port>"
+
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+end
+
+port = assert(tonumber(arg[1]), "no port\n"..USAGE)
+
+print("listen on "..port.." (beep) "..(port-1).." (raw)")
+
+-- Raw server:
+
+raw = {}
+
+raw.server = assert(socket.bind("*", port))
+raw.server:settimeout(0)
+
+function raw.receive(client)
+  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  if data then
+    if verbose then
+      print("--- I > L:"..#data)
+    end
+    ok, emsg = client:send(#data.."\n")
+    if not ok then
+      print("send on", client, "failed", emsg)
+      loop.receive(client)
+    end
+  elseif emsg == "timeout" then
+    -- ignore
+  else
+    print("receive on", client, "failed", emsg)
+    loop.receive(client)
+  end
+end
+
+function raw.accept(server)
+  print(".. accept from", q(server))
+  client = server:accept()
+  if not client then
+    -- oops, client died before we accepted
+  else
+    loop.receive(client, raw.receive)
+  end
+end
+
+loop.receive(raw.server, raw.accept)
+
+-- Start loop
+
+loop.start()
+

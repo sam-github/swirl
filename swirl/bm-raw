@@ -1,0 +1,62 @@
+#!/usr/bin/env lua
+
+require"quote"
+require"sockext"
+
+-- Setup
+
+loop = sockext.loop
+
+q = quote.quote
+
+USAGE = "usage: "..arg[0].." <port> [host]"
+
+SZ = 4000
+BUF = string.rep("x", SZ)
+TIME = 5 -- seconds
+
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+end
+
+port = assert(tonumber(arg[1]), "no port\n"..USAGE)
+host = arg[2] or "localhost"
+
+io.stdout:setvbuf"no"
+
+local xfersz = 0
+
+function receive(client)
+  if verbose then print(".. receive") end
+  local data, emsg = client:receive"*l"
+
+  assert(data, emsg)
+
+  xfersz = xfersz + assert(tonumber(data))
+
+  if verbose then
+    print(".. xfersz = "..xfersz)
+  end
+
+  t1 = os.time()
+
+  if t1 - t0 > TIME then
+    t = t1 - t0
+    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t)
+    os.exit(0)
+  end
+end
+
+function send(client)
+  assert(client:send(BUF))
+end
+
+client = assert(socket.connect(host, port))
+
+t0 = os.time()
+
+loop.receive(client, receive)
+loop.send(client, send)
+loop.start()
+

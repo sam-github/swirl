@@ -1,3 +1,11 @@
+Todo:
+
+- convert ex-chat to use on_pullable/pushable
+x raw bm
+- null bm
+
+
+
 See:
 
 http://beepcore-c.sourceforge.net/
