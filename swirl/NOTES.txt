@@ -3,6 +3,7 @@ Todo:
 - convert ex-chat to use on_pullable/pushable
 x raw bm
 - null bm
+- "async" server
 
 
 
@@ -42,6 +43,8 @@ BUG I ignore the notify_lower status change, but it looks like it might indicate
 
 TODO no callbacks include session. because you can arrange for a function to
 have it in it's closure, it's never necessary, but is this annoying? Yes!
+
+TODO frame:send_rpy()/err/ans/null? better than frame:session():send_rpy..
 
 BUG I don't see how to know when a session is quiescent, how to know when to close the socket.
 
