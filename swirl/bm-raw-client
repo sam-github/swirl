@@ -23,8 +23,6 @@ end
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 host = arg[2] or "localhost"
 
-io.stdout:setvbuf"no"
-
 local xfersz = 0
 
 function receive(client)
