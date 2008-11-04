@@ -79,7 +79,7 @@ function loop.stop()
 end
 
 local function ins(t, o, fn)
-  assert(o, tostring(o))
+  assert(o, "o is nil")
   assert(o:getfd(), tostring(o))
 
   -- remove existing
