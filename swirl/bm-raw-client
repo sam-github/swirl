@@ -43,7 +43,7 @@ function receive(client)
 
   if t1 - t0 > TIME then
     t = t1 - t0
-    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t)
+    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
     os.exit(0)
   end
 end

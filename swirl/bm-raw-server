@@ -13,9 +13,6 @@ loop = sockext.loop
 
 q = quote.quote
 
-NULL = "http://example.com/beep/null"
-ECHO = "http://example.com/beep/null"
-
 USAGE = "usage: "..arg[0].." [-v] <port>"
 
 if arg[1] == "-v" then
@@ -25,7 +22,7 @@ end
 
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 
-print("listen on "..port.." (beep) "..(port-1).." (raw)")
+print("listen on "..port.." (raw)")
 
 -- Raw server:
 
