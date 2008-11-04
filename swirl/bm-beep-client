@@ -1,0 +1,109 @@
+#!/usr/bin/env lua
+
+require"quote"
+require"socket"
+require"sockext"
+require"swirl"
+
+-- Setup
+
+loop = sockext.loop
+
+q = quote.quote
+
+USAGE = "usage: "..arg[0].." [-v] <port> [host]"
+
+NULL = "http://example.com/beep/null"
+
+SZ = 4000
+BUF = string.rep("x", SZ)
+TIME = 5 -- seconds
+
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+  trace = print
+else
+  trace = function () end
+end
+
+port = assert(tonumber(arg[1]), "no port\n"..USAGE)
+host = arg[2] or "localhost"
+
+local xfersz = 0
+
+-- Beep client:
+
+beep = {}
+
+beep.il = "I"
+
+function beep.receive(client)
+  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  if data then
+    trace("--- L > I:\n"..data.."\n---")
+    beep.core:push(data)
+  elseif emsg == "timeout" then
+    -- ignore
+  else
+    print("receive on", client, "failed", emsg)
+    os.exit(1)
+  end
+end
+
+function beep.send(client)
+  local data = beep.core:pull()
+  if data then
+    trace("--- I > L:\n"..data.."\n---")
+    local sz = assert(client:send(data))
+    beep.core:pulled(sz)
+  end
+end
+
+function beep.on_connected(client)
+  trace(".. on_connected")
+  beep.chno = beep.core:start(NULL)
+end
+
+function beep.on_started(ch0)
+  trace(".. on_started")
+  t0 = os.time()
+  assert(beep.core:send_msg(beep.chno, BUF))
+end
+
+function beep.on_rpy(frame)
+  trace(".. on_rpy", frame:payload())
+
+  xfersz = xfersz + assert(tonumber(frame:payload()))
+
+  trace(".. xfersz = "..xfersz)
+
+  t1 = os.time()
+
+  if t1 - t0 > TIME then
+    t = t1 - t0
+    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
+    os.exit(0)
+  end
+
+  frame:destroy()
+
+  assert(beep.core:send_msg(beep.chno, BUF))
+end
+
+function beep.on_pullable(core)
+  loop.send(beep.client, beep.send)
+end
+
+beep.core = swirl.session(beep)
+beep.client = assert(socket.connect(host, port))
+beep.client:settimeout(0)
+
+loop.receive(beep.client, beep.receive)
+loop.send(beep.client, beep.send)
+
+
+-- Start loop
+
+loop.start()
+

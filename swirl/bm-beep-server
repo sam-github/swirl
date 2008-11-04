@@ -1,0 +1,123 @@
+#!/usr/bin/env lua
+--[[
+]]
+
+require"quote"
+require"socket"
+require"sockext"
+require"swirl"
+
+-- Setup
+
+loop = sockext.loop
+
+q = quote.quote
+
+NULL = "http://example.com/beep/null"
+
+USAGE = "usage: "..arg[0].." [-v] <port>"
+
+if arg[1] == "-v" then
+  verbose = true
+  table.remove(arg, 1)
+  trace = print
+else
+  trace = function () end
+end
+
+port = assert(tonumber(arg[1]), "no port\n"..USAGE)
+
+print("listen on "..port.." (beep)")
+
+
+-- Beep server:
+
+beep = {}
+
+beep.il = "L"
+beep.profiles = { NULL }
+beep.msgsz = 0
+
+beep.server = assert(socket.bind("*", port))
+beep.server:settimeout(0)
+
+function beep.receive(client)
+  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  if data then
+    trace("--- I > L:"..#data)
+    --trace(data.."\n---")
+    beep.core:push(data)
+  elseif emsg == "timeout" then
+    -- ignore
+  else
+    print("receive on", client, "failed", emsg)
+    loop.receive(client)
+  end
+end
+
+function beep.send(client)
+  trace(".. send")
+
+  loop.send(client)
+
+  local data = beep.core:pull()
+  if data then
+    if verbose then
+      print("--- L > I:"..#data)
+      print(data.."\n---")
+    end
+    local sz, emsg = client:send(data)
+    if sz then
+      beep.core:pulled(sz)
+    else
+      beep.core = nil
+      beep.client = nil
+      loop.receive(client)
+      loop.send(client)
+    end
+  end
+end
+
+function beep.on_start(ch0)
+  trace(".. on_start")
+  ch0:accept(NULL)
+end
+
+function beep.on_msg(frame)
+  if verbose then
+    trace(".. on_msg", q(frame))
+  end
+  beep.msgsz = beep.msgsz + #frame:payload()
+  if not frame:more() then
+    frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(beep.msgsz))
+    beep.msgsz = 0
+  end
+  frame:destroy()
+end
+
+function beep.on_pullable(core)
+  trace(".. on_pullable")
+  loop.send(beep.client, beep.send)
+end
+
+function beep.accept(server)
+  trace(".. accept from", q(server))
+  client = server:accept()
+  if not client then
+    -- oops, client died before we accepted
+  else
+    beep.core = swirl.session(beep)
+    beep.client = client
+
+    loop.receive(client, beep.receive)
+    loop.send(client, beep.send)
+  end
+end
+
+loop.receive(beep.server, beep.accept)
+
+
+-- Start loop
+
+loop.start()
+
