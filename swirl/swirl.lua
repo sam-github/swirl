@@ -1,7 +1,30 @@
---[[
-
-frame:send_rpy()/err/ans/null? better than frame:session():send_rpy..
+--[[-
+Swirl - implementation of BEEP for Lua
 ]]
+--[[
+A binding of beepcore-c into Lua 5.1.
+
+Copyright (c) 2008 Sam Roberts
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+]]
+
 
 local getmetatable = getmetatable
 
@@ -11,7 +34,7 @@ module("swirl", package.seeall)
 
 local function c(s)
   if not s then return "[]" end
-  return "["..tostring(s).."+"..s._arg.il.."]"
+  return "["..tostring(s).."+"..tostring(s._arg.il).."]"
 end
 
 local core = getmetatable(swirl._core(function()end, function()end))
@@ -206,8 +229,8 @@ msg is the data to be sent
 TODO - it would be possible to allow partial send_msg, if msgno and more are provided
 ]]
 function core:send_msg(chno, msg)
-  chno = tonumber(chno)
-  assert(chno and chno > 0)
+  chno = assert(tonumber(chno), "chno is not a number")
+  assert(chno > 0, "chno is not greater than zero")
   -- We are responsible for allocating message numbers, lets make them increase
   -- sequentially within a channel.
   local msgno = self._msgno[chno] or 1
@@ -239,8 +262,8 @@ local opcb = {inready = "on_pushable", outready="on_pullable"}
 local function notify_lower(lower, op, ...)
   if op == "status" then
     local status, text, chno = ...
-    -- TODO deal with this... in the meantime, print them
-    -- print(c(lower.self), "notify lower", op, status, text, chno)
+    -- FIXME deal with errors!
+    print(c(lower.self), "notify lower", op, status, text, chno)
     lower.status = {status=status, text=text, chno=chno}
   else
     -- print(c(lower.self), "notify lower", op)
@@ -318,6 +341,8 @@ function session(arg)
   local lower = { }
   local upper = { }
 
+  assert(not arg.profiles)
+
   local self = swirl._core(
     function(...) notify_lower(lower, ...) end,
     function(chno, op) notify_upper(upper, chno, op) end,
@@ -336,7 +361,8 @@ function session(arg)
   self._lower = lower -- lower layer notifications, op=true when pending
   self._upper = upper -- upper layer notifications, pairs of {op, chno}
   self._msgno = {}    -- map chno to the highest msgno that has been used
-  -- TODO - if channel is closed, chno can be reused, so we need to clear these on close!
+
+  -- FIXME - if channel is closed, chno can be reused, so we need to clear these on close!
 
   return self
 end
