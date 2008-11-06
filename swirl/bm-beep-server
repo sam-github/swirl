@@ -1,7 +1,6 @@
 #!/usr/bin/env lua
---[[
-]]
 
+require"argp"
 require"quote"
 require"socket"
 require"sockext"
@@ -9,25 +8,27 @@ require"swirl"
 
 -- Setup
 
+USAGE = "usage: "..arg[0].." port=INT"
+
+arg.time     = 5
+
+argp.expand(arg)
+
+if arg.verbose then
+  trace = print
+else
+  trace = function () end
+end
+
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+
 loop = sockext.loop
 
 q = quote.quote
 
 NULL = "http://example.com/beep/null"
 
-USAGE = "usage: "..arg[0].." [-v] <port>"
-
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
-  trace = print
-else
-  trace = function () end
-end
-
-port = assert(tonumber(arg[1]), "no port\n"..USAGE)
-
-print("listen on "..port.." (beep)")
+print("listen on "..arg.port.." (beep)")
 
 
 -- Beep server:
@@ -38,7 +39,7 @@ beep.il = "L"
 beep.profile = { NULL }
 beep.msgsz = 0
 
-beep.server = assert(socket.bind("*", port))
+beep.server = assert(socket.bind("*", arg.port))
 beep.server:settimeout(0)
 
 function beep.receive(client)
@@ -92,6 +93,11 @@ function beep.on_msg(frame)
     frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(beep.msgsz))
     beep.msgsz = 0
   end
+
+  if arg.delay then
+    io.popen("sleep "..arg.delay):read"*a"
+  end
+
   frame:destroy()
 end
 
@@ -108,6 +114,8 @@ function beep.accept(server)
   else
     beep.core = swirl.session(beep)
     beep.client = client
+    beep.client:settimeout(0)
+    beep.client:setoption("tcp-nodelay", true)
 
     loop.receive(client, beep.receive)
     loop.send(client, beep.send)

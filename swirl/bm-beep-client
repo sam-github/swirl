@@ -1,5 +1,6 @@
 #!/usr/bin/env lua
 
+require"argp"
 require"quote"
 require"socket"
 require"sockext"
@@ -7,28 +8,31 @@ require"swirl"
 
 -- Setup
 
-loop = sockext.loop
+USAGE = "usage: "..arg[0].." port=INT [host=STR]"
 
-q = quote.quote
+arg.host     = "localhost"
+arg.time     = 5
+arg.size     = 5000
+arg.presend  = 2
 
-USAGE = "usage: "..arg[0].." [-v] <port> [host]"
+argp.expand(arg)
 
-NULL = "http://example.com/beep/null"
-
-SZ = 4000
-BUF = string.rep("x", SZ)
-TIME = 5 -- seconds
-
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
+if arg.verbose then
   trace = print
 else
   trace = function () end
 end
 
-port = assert(tonumber(arg[1]), "no port\n"..USAGE)
-host = arg[2] or "localhost"
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+
+loop = sockext.loop
+
+q = quote.quote
+
+NULL = "http://example.com/beep/null"
+
+BUF = string.rep("x", arg.size)
+TIME = 5 -- seconds
 
 local xfersz = 0
 
@@ -68,11 +72,15 @@ end
 function beep.on_started(ch0)
   trace(".. on_started")
   t0 = os.time()
-  assert(beep.core:send_msg(beep.chno, BUF))
+
+  -- keep outgoing queue full
+  for _=1,arg.presend do
+    assert(beep.core:send_msg(beep.chno, BUF))
+  end
 end
 
 function beep.on_rpy(frame)
-  trace(".. on_rpy", frame:payload())
+  trace(".. on_rpy", frame:messageno(), frame:payload())
 
   xfersz = xfersz + assert(tonumber(frame:payload()))
 
@@ -96,8 +104,9 @@ function beep.on_pullable(core)
 end
 
 beep.core = swirl.session(beep)
-beep.client = assert(socket.connect(host, port))
+beep.client = assert(socket.connect(arg.host, arg.port))
 beep.client:settimeout(0)
+beep.client:setoption("tcp-nodelay", true)
 
 loop.receive(beep.client, beep.receive)
 loop.send(beep.client, beep.send)
