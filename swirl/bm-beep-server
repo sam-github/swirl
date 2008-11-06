@@ -35,7 +35,7 @@ print("listen on "..port.." (beep)")
 beep = {}
 
 beep.il = "L"
-beep.profiles = { NULL }
+beep.profile = { NULL }
 beep.msgsz = 0
 
 beep.server = assert(socket.bind("*", port))
