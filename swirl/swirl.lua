@@ -43,10 +43,12 @@ function core:_cb(cb, ...)
   --print("-> _cb "..cb, ...)
   local fncb = self._arg[cb]
   if fncb then
-    ok, msg = pcall(fncb, ...)
-    if not ok then
-      (self._arg.on_error or print)(cb.." failed with "..msg)
+    local result = { pcall(fncb, ...) }
+    local ok = table.remove(result, 1)
+    if ok then
+      return unpack(result)
     end
+    (self._arg.on_error or print)(cb.." failed with "..result[1])
   end
 end
 
@@ -93,10 +95,10 @@ function core:push(buffer)
 	      end
 	      local ecode = chan0:error()
 	      if not ecode then
-		self:_cb("on_connected", profiles, chan0:features(), chan0:localize())
+		self:_cb("on_connected", self, profiles, chan0:features(), chan0:localize())
 		chan0:destroy()
 	      else
-		self:_cb("on_connect_err", chan0:error())
+		self:_cb("on_connect_err", self, chan0:error())
 		chan0:destroy()
 	      end
 	    else
@@ -153,6 +155,9 @@ function core:push(buffer)
       -- All queued outgoing frames for this channel have been written.
       --
       -- Useful so local side can get involved in flow control?
+      -- I think we need to know not when the queue is empty, but when the window opens
+      -- up - the opposite of "windowfull" perhaps?
+      --print("QEMPTY")
     elseif op == "answered" then
       -- All sent MSGs have been answered in full.
       -- (Safe to initiate close, tuning reset, etc.)
@@ -168,6 +173,7 @@ function core:push(buffer)
       -- Receive window has filled up.
       --
       -- What does this mean?
+      --print("WINDOWFULL")
     else
       assert(nil, "UNHANDLED "..op)
     end
@@ -296,7 +302,7 @@ Arguments:
       emsg: textual message, optional
       elang: language of textual message, optional
 
-  on_connected=function(profiles, features, localize): called on successful greeting from peer
+  on_connected=function(core, profiles, features, localize): called on successful greeting from peer
     profiles: an array of URIs identifying the server profiles supported by the peer
     features: a string of tokens describing optional features of the channel
       management profile, or nil (rarely supported)

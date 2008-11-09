@@ -2,8 +2,6 @@
 
 #define NULL_PROFILE "http://example.com/beep/null"
 
-int count = 0;
-
 void frame_received (VortexChannel * channel,
     VortexConnection * connection,
     VortexFrame * frame,
@@ -18,7 +16,7 @@ void frame_received (VortexChannel * channel,
   vortex_channel_send_rpyv (channel,
       vortex_frame_get_msgno (frame),
       "%d",
-      count);
+      vortex_frame_get_payload_size (frame));
 
   printf ("VORTEX_LISTENER: end task (pid: %d)\n", getpid ());
 

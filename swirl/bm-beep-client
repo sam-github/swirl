@@ -1,14 +1,13 @@
 #!/usr/bin/env lua
 
+NULL = "http://example.com/beep/null"
+
 require"argp"
-require"quote"
-require"socket"
-require"sockext"
-require"swirl"
+require"swirlsock"
 
--- Setup
+-- Arguments
 
-USAGE = "usage: "..arg[0].." port=INT [host=STR]"
+USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT] [presend=INT]"
 
 arg.host     = "localhost"
 arg.time     = 5
@@ -16,6 +15,10 @@ arg.size     = 5000
 arg.presend  = 2
 
 argp.expand(arg)
+
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+
+verbose = arg.verbose
 
 if arg.verbose then
   trace = print
@@ -25,61 +28,31 @@ end
 
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 
-loop = sockext.loop
-
-q = quote.quote
-
-NULL = "http://example.com/beep/null"
-
 BUF = string.rep("x", arg.size)
-TIME = 5 -- seconds
 
 local xfersz = 0
 
--- Beep client:
+-- Null client
 
-beep = {}
+null = {}
 
-beep.il = "I"
-
-function beep.receive(client)
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
-  if data then
-    trace("--- L > I:\n"..data.."\n---")
-    beep.core:push(data)
-  elseif emsg == "timeout" then
-    -- ignore
-  else
-    print("receive on", client, "failed", emsg)
-    os.exit(1)
-  end
-end
-
-function beep.send(client)
-  local data = beep.core:pull()
-  if data then
-    trace("--- I > L:\n"..data.."\n---")
-    local sz = assert(client:send(data))
-    beep.core:pulled(sz)
-  end
-end
-
-function beep.on_connected(client)
+function null.on_connected(core)
   trace(".. on_connected")
-  beep.chno = beep.core:start(NULL)
+  null.core = core
+  null.chno = core:start(NULL)
 end
 
-function beep.on_started(ch0)
+function null.on_started(ch0)
   trace(".. on_started")
   t0 = os.time()
 
   -- keep outgoing queue full
   for _=1,arg.presend do
-    assert(beep.core:send_msg(beep.chno, BUF))
+    assert(null.core:send_msg(null.chno, BUF))
   end
 end
 
-function beep.on_rpy(frame)
+function null.on_rpy(frame)
   trace(".. on_rpy", frame:messageno(), frame:payload())
 
   xfersz = xfersz + assert(tonumber(frame:payload()))
@@ -88,31 +61,20 @@ function beep.on_rpy(frame)
 
   t1 = os.time()
 
-  if t1 - t0 > TIME then
+  if t1 - t0 > arg.time then
     t = t1 - t0
     print("xsz", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
     os.exit(0)
   end
 
+  assert(frame:session():send_msg(frame:channelno(), BUF))
+
   frame:destroy()
-
-  assert(beep.core:send_msg(beep.chno, BUF))
 end
-
-function beep.on_pullable(core)
-  loop.send(beep.client, beep.send)
-end
-
-beep.core = swirl.session(beep)
-beep.client = assert(socket.connect(arg.host, arg.port))
-beep.client:settimeout(0)
-beep.client:setoption("tcp-nodelay", true)
-
-loop.receive(beep.client, beep.receive)
-loop.send(beep.client, beep.send)
-
 
 -- Start loop
 
-loop.start()
+assert(swirl.connect(null, arg.port, arg.host))
+
+sockext.loop.start()
 

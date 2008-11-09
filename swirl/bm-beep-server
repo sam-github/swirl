@@ -1,131 +1,80 @@
 #!/usr/bin/env lua
 
+-- TODO factor common out of client+server
+
+NULL = "http://example.com/beep/null"
+
 require"argp"
-require"quote"
-require"socket"
-require"sockext"
-require"swirl"
+require"swirlsock"
 
--- Setup
+-- Arguments
 
-USAGE = "usage: "..arg[0].." port=INT"
-
-arg.time     = 5
+USAGE = "usage: "..arg[0].." port=INT [verbose=yes|very]"
 
 argp.expand(arg)
 
-if arg.verbose then
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+
+verbose = arg.verbose
+
+if verbose then
   trace = print
 else
   trace = function () end
 end
 
-arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+-- Null server
 
-loop = sockext.loop
+null = {
+  profile = {NULL},
+  msgsz = 0 -- TODO need msgsz / channel / core for multi-channel support
+}
 
-q = quote.quote
-
-NULL = "http://example.com/beep/null"
-
-print("listen on "..arg.port.." (beep)")
-
-
--- Beep server:
-
-beep = {}
-
-beep.il = "L"
-beep.profile = { NULL }
-beep.msgsz = 0
-
-beep.server = assert(socket.bind("*", arg.port))
-beep.server:settimeout(0)
-
-function beep.receive(client)
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
-  if data then
-    trace("--- I > L:"..#data)
-    --trace(data.."\n---")
-    beep.core:push(data)
-  elseif emsg == "timeout" then
-    -- ignore
-  else
-    print("receive on", client, "failed", emsg)
-    loop.receive(client)
-  end
-end
-
-function beep.send(client)
-  trace(".. send")
-
-  loop.send(client)
-
-  local data = beep.core:pull()
-  if data then
-    if verbose then
-      print("--- L > I:"..#data)
-      print(data.."\n---")
-    end
-    local sz, emsg = client:send(data)
-    if sz then
-      beep.core:pulled(sz)
-    else
-      beep.core = nil
-      beep.client = nil
-      loop.receive(client)
-      loop.send(client)
-    end
-  end
-end
-
-function beep.on_start(ch0)
+function null.on_start(ch0)
   trace(".. on_start")
   ch0:accept(NULL)
 end
 
-function beep.on_msg(frame)
+function null.on_msg(frame)
   if verbose then
-    trace(".. on_msg", q(frame))
+    trace(".. on_msg", tostring(frame))
   end
-  beep.msgsz = beep.msgsz + #frame:payload()
-  if not frame:more() then
-    frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(beep.msgsz))
-    beep.msgsz = 0
-  end
+  null.msgsz = null.msgsz + #frame:payload()
 
-  if arg.delay then
-    io.popen("sleep "..arg.delay):read"*a"
+  if not frame:more() then
+    frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(null.msgsz))
+    null.msgsz = 0
   end
 
   frame:destroy()
-end
 
-function beep.on_pullable(core)
-  trace(".. on_pullable")
-  loop.send(beep.client, beep.send)
-end
-
-function beep.accept(server)
-  trace(".. accept from", q(server))
-  client = server:accept()
-  if not client then
-    -- oops, client died before we accepted
-  else
-    beep.core = swirl.session(beep)
-    beep.client = client
-    beep.client:settimeout(0)
-    beep.client:setoption("tcp-nodelay", true)
-
-    loop.receive(client, beep.receive)
-    loop.send(client, beep.send)
+  -- useful when debugging to slow down the server
+  if arg.delay then
+    io.popen("sleep "..arg.delay):read"*a"
   end
 end
 
-loop.receive(beep.server, beep.accept)
+if verbose then
+  -- print send/receive, and data if very verbose
+  function null.trace_receive(core, data)
+    trace("--- I > L:"..#data)
 
+    if verbose == "very" then
+      trace(data.."\n---")
+    end
+  end
+
+  function null.trace_send(core, data, sz)
+    trace("--- L > I:"..sz.."/"..#data)
+    if verbose == "very" then
+      trace(data.."\n---")
+    end
+  end
+end
 
 -- Start loop
 
-loop.start()
+assert(swirl.listen(null, arg.port))
+
+sockext.loop.start()
 

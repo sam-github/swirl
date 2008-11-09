@@ -1,11 +1,39 @@
 Todo:
 
-- convert ex-chat to use on_pullable/pushable
 x raw bm
+
 - null bm
+  x 1 channel
+  x presend
+  - multi channel
+
+- factor socket pull/push into swirlsock
+  x implement
+  x convert bm to use swirlsock
+  - convert ex-chat to use swirlsock
+  - unit test swirlsock
+
 - "async" server
+  - need loop.delay()
+    - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
 
+- rename session to core
 
+- triage bugs
+
+- release
+  - document
+  - push src
+  - announce
+
+- tune performance
+  - intra toolkit
+    - vortex
+    - beep4j
+  - intra-machine
+  - make it fast, see:
+      http://sourceforge.net/projects/simple3195/
+      RFC 813
 
 See:
 
@@ -30,21 +58,13 @@ that its supposed to be transparently encoded.
 
 BUG sessions aren't being GCed until lua state is destroyed, why not?
 
-BUG CBEEP's API isn't const-correct, so I have to cast away const in swirl, I
-should fix CBEEP instead.
-
-TODO I think I might be able to define PRE() to throw a lua error, and perhaps
-FAULT() as well.
-
 BUG it's illegal to RPY to a MSG before the entire MSG is received, but the
-core allows this.
+core allows this, and probably lots of other things
 
 BUG I ignore the notify_lower status change, but it looks like it might indicate improper api use
 
 TODO no callbacks include session. because you can arrange for a function to
 have it in it's closure, it's never necessary, but is this annoying? Yes!
-
-TODO frame:send_rpy()/err/ans/null? better than frame:session():send_rpy..
 
 BUG I don't see how to know when a session is quiescent, how to know when to close the socket.
 
@@ -55,6 +75,8 @@ BUG I don't see how to know when a session is quiescent, how to know when to clo
   I think that as soon as the closer of channel zero gets an affirmative reply,
   it closes. It shouldn't have asked if its not willing, and the server
   shouldn't have accepted if it wasn't willing to close all its connections.
+
+  Also, I think the initiator of a close gets closed state, other only ever gets half-closed.
 
 
 * Terminology

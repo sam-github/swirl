@@ -86,7 +86,7 @@ if kind == "beep" then
   function session(il, on_connected)
     return swirl.session{il=il,
       on_connected = function(...)
-	print("on_greeting", ...)
+	print("on_connected", ...)
 	if il == "I" then
 	  core:start{profiles = {{uri=URI}}}
 	end

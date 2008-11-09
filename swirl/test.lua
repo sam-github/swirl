@@ -16,9 +16,8 @@ function create(arg)
   local msg_accum = {}
   local template = {
     -- session management
-    on_connected = function(profiles, features, localize)
-      -- FIXME need session passed as arg
-      print(c(nil), "...on_connected", q(profiles), q(features), q(localize))
+    on_connected = function(core, profiles, features, localize)
+      print(c(core), "...on_connected", q(profiles), q(features), q(localize))
     end,
 
     on_connect_err = function(...)
@@ -149,15 +148,15 @@ print"\n\n=== test connect/ok w/zero profiles"
 ok = 0
 
 i = create{il="I", profile={},
-  on_connected=function(profiles, features, localize)
-    print("on_connected", q(profiles), q(features), q(localize))
+  on_connected=function(core, profiles, features, localize)
+    print("on_connected", q(core), q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
 
 l = create{il="L",
-  on_connected=function(profiles, features, localize)
-    print("on_connected", q(profiles), q(features), q(localize))
+  on_connected=function(core, profiles, features, localize)
+    print("on_connected", q(core), q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
@@ -172,15 +171,15 @@ print"\n\n=== test connect/ok w/one+one profiles"
 ok = 0
 
 i = create{il="I", profile={"http://example.com/I"},
-  on_connected=function(profiles, features, localize)
-    print("on_connected", q(profiles), q(features), q(localize))
+  on_connected=function(core, profiles, features, localize)
+    print("on_connected", core, q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
 
 l = create{il="L", profile={"http://example.com/L"},
-  on_connected=function(profiles, features, localize)
-    print("on_connected", q(profiles), q(features), q(localize))
+  on_connected=function(core, profiles, features, localize)
+    print("on_connected", core, q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
@@ -195,14 +194,14 @@ print"\n\n=== test connect/ok w/zero+two profiles"
 ok = 0
 
 i = create{il="I",
-  on_connected=function(profiles, features, localize)
+  on_connected=function(core, profiles, features, localize)
     print("on_connected", q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
 
 l = create{il="L", profile={"http://example.com/L1", "http://example.com/L2"},
-  on_connected=function(profiles, features, localize)
+  on_connected=function(core, profiles, features, localize)
     print("on_connected", q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
