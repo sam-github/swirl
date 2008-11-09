@@ -27,11 +27,16 @@ end
 
 null = {
   profile = {NULL},
-  msgsz = 0 -- TODO need msgsz / channel / core for multi-channel support
 }
+
+function null.on_connected(core)
+  trace(".. on_connected")
+  core.user = {} -- use to track msgsz/channel
+end
 
 function null.on_start(ch0)
   trace(".. on_start")
+  ch0:session().user[ch0:channelno()] = 0
   ch0:accept(NULL)
 end
 
@@ -39,11 +44,14 @@ function null.on_msg(frame)
   if verbose then
     trace(".. on_msg", tostring(frame))
   end
-  null.msgsz = null.msgsz + #frame:payload()
+  local msgsz = frame:session().user
+  local chno = frame:channelno()
+
+  msgsz[chno] = msgsz[chno] + #frame:payload()
 
   if not frame:more() then
-    frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(null.msgsz))
-    null.msgsz = 0
+    frame:session():send_rpy(frame:channelno(), frame:messageno(), tostring(msgsz[chno]))
+    msgsz[chno] = 0
   end
 
   frame:destroy()

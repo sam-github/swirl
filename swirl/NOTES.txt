@@ -2,10 +2,10 @@ Todo:
 
 x raw bm
 
-- null bm
+x null bm
   x 1 channel
   x presend
-  - multi channel
+  x multi channel
 
 - factor socket pull/push into swirlsock
   x implement
@@ -223,3 +223,35 @@ delivering them when they are complete, or they are over msg size. Could be
 per-channel. That would allow usual case to mean that you don't get small
 frames do to chopping a msg to fit in window, but still completely leave up to
 them the choice of accumulating larger frames, or saying it's invalid.
+
+
+
+** Benchmark v1 (obsolete)
+
+
+benchmark comparing single channel msg/rpy over beep with similar over tcp
+
+tcp just writes the data raw, with no framing, then writes a single byte back
+
+this isn't a comparison of beep against another protocol, but since we can't go
+faster than tcp, it gives an idea how close we are getting to the theoretical
+max
+
+That seems to be about 30% of max, not sure if this is good, but it isn't
+awful, either.
+
+Profiling is required!
+
+
+ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua tcp 4321 localhost 5
+done t=6 msgs=5745 msgs/sec=957.500000 bytes/sec=4787500.000000
+
+ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua beep 4321 localhost 5
+done t=6 msgs=1785 msgs/sec=297.500000 bytes/sec=1487500.000000
+
+ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua beep 4321 localhost 5
+done t=6 msgs=3693 msgs/sec=615.500000 bytes/sec=307750.000000
+
+ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua tcp 4321 localhost 5
+done t=6 msgs=7306 msgs/sec=1217.666667 bytes/sec=608833.333333
+]]

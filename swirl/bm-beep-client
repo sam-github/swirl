@@ -7,12 +7,13 @@ require"swirlsock"
 
 -- Arguments
 
-USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT] [presend=INT]"
+USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT] [seq=INT] [par=INT]"
 
 arg.host     = "localhost"
 arg.time     = 5
 arg.size     = 5000
-arg.presend  = 2
+arg.seq      = 2
+arg.par      = 1
 
 argp.expand(arg)
 
@@ -31,8 +32,6 @@ arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 
 BUF = string.rep("x", arg.size)
 
-local xfersz = 0
-
 -- Null client
 
 null = {}
@@ -40,15 +39,23 @@ null = {}
 function null.on_connected(core)
   trace(".. on_connected")
   null.core = core
-  null.chno = core:start(NULL)
+  core.user = 0 -- total bytes acknowledged to have been transferred
+  for _=1,arg.par do
+    assert(core:start(NULL))
+  end
 end
 
 function null.on_started(core, chno)
   trace(".. on_started")
-  t0 = os.time()
+  
+  if not t0 then
+    -- TODO when using N parallel channels, this means the benchmarks includes
+    -- the overhead of starting the next N-1 channels.
+    t0 = os.time()
+  end
 
   -- keep outgoing queue full
-  for _=1,arg.presend do
+  for _=1,arg.seq do
     assert(core:send_msg(chno, BUF))
   end
 end
@@ -56,15 +63,17 @@ end
 function null.on_rpy(frame)
   trace(".. on_rpy", frame:messageno(), frame:payload())
 
-  xfersz = xfersz + assert(tonumber(frame:payload()))
+  local core = frame:session()
 
-  trace(".. xfersz = "..xfersz)
+  core.user = core.user + assert(tonumber(frame:payload()))
+
+  trace(".. xfersz = "..core.user)
 
   t1 = os.time()
 
   if t1 - t0 > arg.time then
     t = t1 - t0
-    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
+    print("seq", arg.seq, "par", arg.par, "b", core.user, "t", t, "rate", core.user/1000/t, "kb/s")
     os.exit(0)
   end
 

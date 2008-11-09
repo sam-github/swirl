@@ -5,8 +5,6 @@ require"sockext"
 
 -- Setup
 
-loop = sockext.loop
-
 q = quote.quote
 
 USAGE = "usage: "..arg[0].." <port> [host]"
@@ -41,7 +39,7 @@ function receive(client)
 
   if t1 - t0 > TIME then
     t = t1 - t0
-    print("xsz", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
+    print("tcp", "b", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
     os.exit(0)
   end
 end
@@ -53,6 +51,8 @@ end
 client = assert(socket.connect(host, port))
 
 t0 = os.time()
+
+loop = sockext.loop
 
 loop.receive(client, receive)
 loop.send(client, send)
