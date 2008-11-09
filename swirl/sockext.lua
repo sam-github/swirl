@@ -127,7 +127,11 @@ function loop.start()
     local function call(events, actions)
       for i,sock in ipairs(events) do
 	-- print(actions._event, q(sock), q(actions[sock]))
-	actions[sock](sock)
+	local action = actions[sock]
+	-- earlier actions may have deregistered for events
+	if action then
+	  action(sock)
+	end
       end
     end
 
