@@ -114,6 +114,12 @@ function loop.start()
   while looping do
     --print("select q", q(array(qrd)), q(array(qwr)))
 
+    if #qrd + #qwr == 0 then
+      -- don't block forever on empty socket lists
+      looping = false
+      break
+    end
+
     local ard, awr, err = socket.select(qrd, qwr)
 
     --print("select a", q(array(qrd)), q(array(qwr)))
