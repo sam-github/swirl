@@ -52,7 +52,7 @@ local function start(client, arg)
   assert(client:settimeout(0))
   assert(client:setoption("tcp-nodelay", true))
 
-  local core = swirl.session(arg)
+  local core = swirl.core(arg)
 
   core._client = client
   map[client] = core
@@ -66,7 +66,7 @@ local function accept(server, arg)
   if not client then return end
 
   if  not arg.on_accept(client) then
-    -- FIXME - we should actually create session with error=... set to indicate
+    -- FIXME - we should actually create core with error=... set to indicate
     -- to the initiator why it's connection is being refused, and then do
     -- a clean shutdown
     client:close()
@@ -82,10 +82,10 @@ Listen on host and port (host is optional, and defaults to any, "*").
 When accepting client connections, calls arg.on_accept(client) with the
 accepted client socket.
 
-If on_accept doesn't exist or returns true, arg is passed to swirl.session() to
+If on_accept doesn't exist or returns true, arg is passed to swirl.core() to
 create a core for the client.
 
-The core will call on_connected() when the BEEP session has been established,
+The core will call on_connected() when the BEEP connection has been established,
 at which point channels can be started.
 
 ]]
@@ -112,7 +112,7 @@ end
 --[[-
 Connect to host and port (host is optional, and defaults to "localhost")
 
-The core will call on_connected() when the BEEP session has been established
+The core will call on_connected() when the BEEP connection has been established
 (or on_connect_fail() if it the connection was rejected), at which point
 channels can be started.
 ]]

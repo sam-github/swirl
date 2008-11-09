@@ -64,7 +64,7 @@ static void core_chan0_push(lua_State* L, struct chan0_msg* f, int ncore)
   // setfenv(<chan0 ud>, { session = <core ud> })
   lua_newtable(L);
   lua_pushvalue(L, ncore);
-  lua_setfield(L, -2, "session");
+  lua_setfield(L, -2, "_core");
   lua_setfenv(L, -2);
 
   *ud = f;
@@ -227,11 +227,11 @@ static int core_chan0_servername(lua_State* L)
   return 1;
 }
 
-static int core_chan0_session(lua_State* L)
+static int core_chan0_core(lua_State* L)
 {
   core_chan0_get(L, 1); // don't need value, but want type checking
   lua_getfenv(L, 1);
-  lua_getfield(L, -1, "session");
+  lua_getfield(L, -1, "_core");
   return 1;
 }
 
@@ -302,7 +302,7 @@ static const struct luaL_reg core_chan0_methods[] = {
   { "features",           core_chan0_features },
   { "localize",           core_chan0_localize },
   { "servername",         core_chan0_servername },// <start>
-  { "session",            core_chan0_session },
+  { "core",               core_chan0_core },
   { "accept",             core_chan0_accept },
   { "reject",             core_chan0_reject },
   { NULL, NULL }
@@ -323,7 +323,7 @@ static void core_frame_push(lua_State* L, struct frame* f, int ncore)
   // setfenv(frame, t)
   lua_newtable(L);
   lua_pushvalue(L, ncore);
-  lua_setfield(L, -2, "session");
+  lua_setfield(L, -2, "_core");
   lua_setfenv(L, -2);
 
   *ud = f;
@@ -433,11 +433,11 @@ static int core_frame_payload(lua_State* L)
   return 1;
 }
 
-static int core_frame_session(lua_State* L)
+static int core_frame_core(lua_State* L)
 {
   core_frame_get(L, 1); // don't need value, but want type checking
   lua_getfenv(L, 1);
-  lua_getfield(L, -1, "session");
+  lua_getfield(L, -1, "_core");
   return 1;
 }
 
@@ -451,7 +451,7 @@ static const struct luaL_reg core_frame_methods[] = {
   { "answerno",           core_frame_answerno },
   { "more",               core_frame_more },
   { "payload",            core_frame_payload },
-  { "session",            core_frame_session },
+  { "core",               core_frame_core },
   { NULL, NULL }
 };
 

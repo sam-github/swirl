@@ -1,12 +1,5 @@
 Todo:
 
-x raw bm
-
-x null bm
-  x 1 channel
-  x presend
-  x multi channel
-
 - factor socket pull/push into swirlsock
   x implement
   x convert bm to use swirlsock
@@ -16,8 +9,6 @@ x null bm
 - "async" server
   - need loop.delay()
     - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
-
-- rename session to core
 
 - triage bugs
 
@@ -56,15 +47,14 @@ portions of the library, and is implemented directly on the "core".
 BUG I'm pretty sure profile content with embedded NUL screws things up, despite
 that its supposed to be transparently encoded.
 
-BUG sessions aren't being GCed until lua state is destroyed, why not?
+BUG cores aren't being GCed until lua state is destroyed, why not?
 
 BUG it's illegal to RPY to a MSG before the entire MSG is received, but the
 core allows this, and probably lots of other things
 
 BUG I ignore the notify_lower status change, but it looks like it might indicate improper api use
 
-TODO no callbacks include session. because you can arrange for a function to
-have it in it's closure, it's never necessary, but is this annoying? Yes!
+BUG not all callbacks allow the core to be reached from it's arguments
 
 BUG I don't see how to know when a session is quiescent, how to know when to close the socket.
 

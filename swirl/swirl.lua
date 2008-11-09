@@ -37,9 +37,9 @@ local function c(s)
   return "["..tostring(s).."+"..tostring(s._arg.il).."]"
 end
 
-local core = getmetatable(swirl._core(function()end, function()end))
+local methods = getmetatable(swirl._core(function()end, function()end))
 
-function core:_cb(cb, ...)
+function methods:_cb(cb, ...)
   --print("-> _cb "..cb, ...)
   local fncb = self._arg[cb]
   if fncb then
@@ -52,18 +52,18 @@ function core:_cb(cb, ...)
   end
 end
 
-function core:pull()
+function methods:pull()
   -- print(c(self), "pull")
   return self:_pull()
 end
 
-function core:pulled(sz)
+function methods:pulled(sz)
   -- print(c(self), "pulled", sz)
   self._lower.outready = false
   return self:_pulled(sz)
 end
 
-function core:push(buffer)
+function methods:push(buffer)
   self._lower.inready = nil
 
   -- print(c(self), "push sz=", #buffer, "upper sz=", #self._upper)
@@ -181,11 +181,11 @@ function core:push(buffer)
 end
 
 --[[
-- chno = session:start(URI[, content=STR])
+- chno = core:start(URI[, content=STR])
 
 Start a channel with profile URI, and optional content.
 
-- chno = session:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
+- chno = core:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
 
 Start a channel with one of a set of profiles, an optional servername, and an
 optional channel number.
@@ -195,7 +195,7 @@ TODO just make the arguments positional...
 BEEP calls this start and close. Too bad, I think it should be open and close, or
 start and stop!
 ]]
-function core:start(...)
+function methods:start(...)
   local arg, content = ...
   if type(arg) == "string" then
     arg = {
@@ -220,7 +220,7 @@ should happen?
 TEST what happens when you close a channel that isn't open, or close twice a
 channel? Might need to track at this level and forbid.
 ]]
-function core:close(chno, ecode)
+function methods:close(chno, ecode)
   return self:_chan_close(chno or 0, ecode)
 end
 
@@ -232,7 +232,7 @@ msg is the data to be sent
 
 TODO - it would be possible to allow partial send_msg, if msgno and more are provided
 ]]
-function core:send_msg(chno, msg)
+function methods:send_msg(chno, msg)
   chno = assert(tonumber(chno), "chno is not a number")
   assert(chno > 0, "chno is not greater than zero")
   -- We are responsible for allocating message numbers, lets make them increase
@@ -252,11 +252,11 @@ rpy is the data to be sent
 more is whether there is more data to be sent in this reply, it defaults
   to false
 ]]
-function core:send_rpy(chno, msgno, rpy, more)
+function methods:send_rpy(chno, msgno, rpy, more)
   return self:_frame_send(chno, "RPY", rpy, msgno, nil, more)
 end
 
-function core:send_err(chno, msgno, err)
+function methods:send_err(chno, msgno, err)
   return self:_frame_send(chno, "ERR", err, msgno)
 end
 
@@ -285,10 +285,13 @@ local function notify_upper(upper, chno, op)
 end
 
 --[[
-- core = swirl.session{...}
+- core = swirl.core{...}
 
 Arguments:
-  il=[I|L] whether this session is an initiator or listener, default is initiator
+  il=[I|L] whether this core is an initiator or listener, default is initiator (it effects the
+    channel numbering, so each of the peers must be one or the other, with TCP, the side
+    that does the connect() is the initiator, and the side that does the accept() is the
+    listener).
 
   profile = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
 
@@ -329,16 +332,16 @@ Arguments:
   on_msg = function(frame):
 
 
-  on_pullable = function(sess): data is available via :pull(). Note carefully that no
+  on_pullable = function(core): data is available via :pull(). Note carefully that no
     swirl calls may be made in this function. It is useful to adjust the select/poll
-    set, for example, or to unblock a thread reading from the session, and writing to
+    set, for example, or to unblock a thread reading from the core, and writing to
     the peer. Sessions are always pullable after creation.
 
-  on_pushable = function(sess): space is available for data to be :push()ed. The same
-    notes as above apply to this callback. Sessions are always pushable after creation.
+  on_pushable = function(core): space is available for data to be :push()ed. The same
+    notes as above apply to this callback. The core is always pushable after creation.
 
 ]]
-function session(arg)
+function core(arg)
   -- The notify callbacks are called during core creation, so make sure that
   -- they have a place to put their notifications before the core is returned
   -- to us.
@@ -357,7 +360,7 @@ function session(arg)
     arg.error
     )
 
-  -- so notifications can reach the session if they need to
+  -- so notifications can reach the core's callbacks
   lower.self = self
   upper.self = self
 

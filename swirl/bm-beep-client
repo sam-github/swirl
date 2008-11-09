@@ -63,7 +63,7 @@ end
 function null.on_rpy(frame)
   trace(".. on_rpy", frame:messageno(), frame:payload())
 
-  local core = frame:session()
+  local core = frame:core()
 
   core.user = core.user + assert(tonumber(frame:payload()))
 
@@ -77,7 +77,7 @@ function null.on_rpy(frame)
     os.exit(0)
   end
 
-  assert(frame:session():send_msg(frame:channelno(), BUF))
+  assert(frame:core():send_msg(frame:channelno(), BUF))
 
   frame:destroy()
 end

@@ -12,7 +12,7 @@ loop = sockext.loop
 
 q = quote.quote
 
-URI = "http://example.com/beep/chat"
+CHAT = "http://example.com/beep/chat"
 
 USAGE = "usage: "..arg[0].." <port>"
 
@@ -26,56 +26,56 @@ port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 
 -- Chat server:
 
-sessions = {}
+users = {}
 
-function join(sess, chno, name)
+function join(core, chno, name)
   if not name then
     return swirl.ecodes.invalidparam, "chat content is not the name"
-  elseif sess.user then
+  elseif core.user then
     return swirl.ecodes.invalidparam, "chatting already"
   else
     print("ADD USER", q(name))
-    sess.user = { name = name, chno = chno }
+    core.user = { name = name, chno = chno }
   end
 end
 
-function leave(sess, chno)
-  print("DROP USER", q(sess.user.name))
-  sess.user = nil
+function leave(core, chno)
+  print("DROP USER", q(core.user.name))
+  core.user = nil
 end
 
-function speak(sess, payload, more)
-  sess.user.msg = (sess.user.msg or "")..payload
+function speak(core, payload, more)
+  core.user.msg = (core.user.msg or "")..payload
 
   if more then
-    print("MSG FROM", sess.user.name, "...")
+    print("MSG FROM", core.user.name, "...")
     return
   end
 
-  print("MSG FROM", sess.user.name)
-  print(sess.user.msg)
+  print("MSG FROM", core.user.name)
+  print(core.user.msg)
 
-  -- send msg to all sessions other than ours
-  for k,other in pairs(sessions) do
-    if other ~= sess  and other.user then
+  -- send msg to all users other than ours
+  for k,other in pairs(users) do
+    if other ~= core  and other.user then
       print("@", q(other.user.name))
-      other:send_msg(other.user.chno, sess.user.name.." says "..q(sess.user.msg))
+      other:send_msg(other.user.chno, core.user.name.." says "..q(core.user.msg))
     end
   end
 
-  sess.user.msg = nil
+  core.user.msg = nil
 end
 
 
 -- Bind swirl to chat server
 
-chat = {il="L", profiles = {URI}}
+chat = {il="L", profile = {CHAT}}
 
 function chat.on_start(ch0)
   print(".. on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
   local p
   for i, profile in pairs(ch0:profiles()) do
-    if profile.uri == URI then
+    if profile.uri == CHAT then
       p = profile
       break
     end
@@ -85,7 +85,7 @@ function chat.on_start(ch0)
     return
   end
 
-  local ecode, emsg = join(ch0:session(), ch0:channelno(), p.content)
+  local ecode, emsg = join(ch0:core(), ch0:channelno(), p.content)
 
   if ecode then
     ch0:reject(ecode, emsg)
@@ -96,34 +96,34 @@ end
 
 function chat.on_close(ch0)
   local ecode, emsg, elang = ch0:error()
-  print(".. on_close:", ch0:session(), ch0:channelno(), ecode, q(emsg), elang)
+  print(".. on_close:", ch0:core(), ch0:channelno(), ecode, q(emsg), elang)
 
-  leave(ch0:session())
+  leave(ch0:core())
 
   ch0:accept()
 end
 
 function chat.on_msg(frame)
-  local sess, more, payload = frame:session(), frame:more(), frame:payload()
-  print(".. on_msg:", sess, frame:channelno(), frame:messageno(), more, #payload)
+  local core, more, payload = frame:core(), frame:more(), frame:payload()
+  print(".. on_msg:", core, frame:channelno(), frame:messageno(), more, #payload)
 
-  speak(sess, payload, more)
+  speak(core, payload, more)
 
   if not frame:more() then
-    sess:send_rpy(frame:channelno(), frame:messageno(), "")
+    core:send_rpy(frame:channelno(), frame:messageno(), "")
   end
 
   frame:destroy()
 end
 
-function chat.on_pullable(sess)
-  print(".. on_pullable", q(sess))
-  loop.send(sess.client, send)
+function chat.on_pullable(core)
+  print(".. on_pullable", q(core))
+  loop.send(core.client, send)
 end
 
-function chat.on_pushable(sess)
-  print(".. on_pushable", q(sess))
-  loop.receive(sess.client, receive)
+function chat.on_pushable(core)
+  print(".. on_pushable", q(core))
+  loop.receive(core.client, receive)
 end
 
 -- Bind loop to swirl
@@ -138,9 +138,9 @@ function accept(server)
   if not client then
     -- oops, client died before we accepted
   else
-    sess = swirl.session(chat)
-    sess.client = client
-    sessions[client] = sess -- I can't index socket userdata, so map externally.
+    core = swirl.core(chat)
+    core.client = client
+    users[client] = core -- I can't index socket userdata, so map externally.
     loop.receive(client, receive)
     loop.send(client, send)
   end
@@ -149,13 +149,13 @@ end
 function clear(client)
     loop.receive(client)
     loop.send(client)
-    sessions[client] = nil
+    users[client] = nil
 end
 
 function send(client)
-  sess = sessions[client]
+  core = users[client]
 
-  local data = sess:pull()
+  local data = core:pull()
 
   if not data then
     loop.send(client)
@@ -171,9 +171,9 @@ function send(client)
   local sz, emsg = client:send(data)
 
   if sz then
-    sess:pulled(sz)
+    core:pulled(sz)
   else
-    print("DIED", sess.user and sess.user.name, emsg)
+    print("DIED", core.user and core.user.name, emsg)
 
     clear(client)
   end
@@ -187,18 +187,18 @@ function receive(client)
       print(data)
       print"---"
     end
-    local ok, emsg = sessions[client]:push(data)
+    local ok, emsg = users[client]:push(data)
 
     if not ok then
-      local eno, emsg, echan = sessions[client]:status()
+      local eno, emsg, echan = users[client]:status()
       print("ERROR", eno, emsg, echan)
     end
   elseif emsg == "timeout" then
     -- ignore
   else
-    sess = sessions[client]
-    if sess.user then
-      print("DIED", sess.user and sess.user.name, emsg)
+    core = users[client]
+    if core.user then
+      print("DIED", core.user and core.user.name, emsg)
     end
     clear(client)
   end

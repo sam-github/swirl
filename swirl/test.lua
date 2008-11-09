@@ -15,7 +15,7 @@ function create(arg)
   -- map msgno to incomplete messages
   local msg_accum = {}
   local template = {
-    -- session management
+    -- connection management
     on_connected = function(core, profiles, features, localize)
       print(c(core), "...on_connected", q(profiles), q(features), q(localize))
     end,
@@ -26,7 +26,7 @@ function create(arg)
 
     -- channel management
     on_start = function(ch0)
-      print(c(ch0:session()), "on_start", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
+      print(c(ch0:core()), "on_start", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
 
       -- accept the first of the requested profiles
       local p = ch0:profiles()[1]
@@ -44,7 +44,7 @@ function create(arg)
     on_close = function(ch0)
       local chno = ch0:channelno()
       local ecode, emsg, elang = ch0:error()
-      print(c(ch0:session()), "..on_close", chno, ecode, q(emsg), elang)
+      print(c(ch0:core()), "..on_close", chno, ecode, q(emsg), elang)
       ch0:accept()
     end,
 
@@ -65,7 +65,7 @@ function create(arg)
       msg_accum[chno][msgno] =  msg_accum[chno][msgno]..frame:payload()
 
       if not frame:more() then
-	frame:session():send_rpy(frame:channelno(), frame:messageno(), msg_accum[chno][msgno])
+	frame:core():send_rpy(frame:channelno(), frame:messageno(), msg_accum[chno][msgno])
 	msg_accum[chno][msgno] = nil
       end
 
@@ -85,7 +85,7 @@ function create(arg)
 
   for k,v in pairs(arg) do template[k] = v end
 
-  return swirl.session(template)
+  return swirl.core(template)
 end
 
 function pump(i, l, quiet)
@@ -230,7 +230,7 @@ pump(i,l)
 assert(ok)
 
 
-print"\n\n=== test session close"
+print"\n\n=== test core close"
 
 i = create{il="I"}
 l = create{il="L"}
@@ -248,7 +248,7 @@ pump(i,l)
 print(c(i), "..status", i:status())
 print(c(l), "..status", l:status())
 
--- check that the session is now not working
+-- check that the core is now not working
 chno, emsg = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
@@ -264,7 +264,7 @@ ecode = i:status()
 assert(ecode == 7)
 
 
-print"\n\n=== test session close/err"
+print"\n\n=== test core close/err"
 
 i = create{il="I",
   on_close = function(ch0)
@@ -294,7 +294,7 @@ i:close()
 
 pump(i,l)
 
--- check that the session is now not working
+-- check that the core is now not working
 chno = i:start{
   profiles={{uri="http://example.org/beep/echo"}},
   }
@@ -396,7 +396,7 @@ i = create{il="I",
 
 l = create{il="L",
   on_msg = function(frame)
-    frame:session():send_err(frame:channelno(), frame:messageno(), "ERROR MSG")
+    frame:core():send_err(frame:channelno(), frame:messageno(), "ERROR MSG")
     frame:destroy()
   end
 }
