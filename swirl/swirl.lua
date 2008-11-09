@@ -131,7 +131,7 @@ function methods:push(buffer)
 	      self:_cb("on_close", chan0)
 	    elseif ic == "c" then
 	      local chno = chan0:channelno()
-	      self:_cb("on_closed", chno)
+	      self:_cb("on_closed", self, chno)
 	      chan0:destroy() -- free up beepcore memory, don't wait for gc
 	      if chno == 0 then
 		--self:destroy()
@@ -325,7 +325,7 @@ Arguments:
 
   on_close = function(ch0):
 
-  on_closed = function():
+  on_closed = function(core, chno):
 
   on_close_err = :
 

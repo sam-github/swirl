@@ -48,8 +48,8 @@ function create(arg)
       ch0:accept()
     end,
 
-    on_closed = function(chno, ...)
-      print("... on_closed:", chno, ...)
+    on_closed = function(core, chno, ...)
+      print("... on_closed:", core, chno, ...)
     end,
 
     -- message transfer
