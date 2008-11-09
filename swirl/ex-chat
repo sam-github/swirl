@@ -83,7 +83,7 @@ function chat.on_connected()
   sess:start(URI, os.getenv"USER" or "anonymous")
 end
 
-function chat.on_started(_chno)
+function chat.on_started(core, _chno)
   print(".. started", _chno)
   chno = _chno
   -- ready to start reading
@@ -91,7 +91,7 @@ function chat.on_started(_chno)
   loop.receive(file, read)
 end
 
-function chat.on_start_err(chno, ecode, emsg, elang)
+function chat.on_start_err(core, chno, ecode, emsg, elang)
   error(string.format("error %d, %s", ecode, emsg or swirl.ecodes[ecode] or "unknown"))
 end
 

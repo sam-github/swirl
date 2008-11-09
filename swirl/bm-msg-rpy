@@ -120,7 +120,7 @@ if kind == "beep" then
 	frame:destroy()
       end,
 
-      on_started = function(chno, uri, content)
+      on_started = function(core, chno, uri, content)
 	print("... on_started:", chno, uri, q(content))
 	tstart()
 	core:send_msg(chno, CHUNK)

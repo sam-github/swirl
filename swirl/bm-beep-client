@@ -17,6 +17,7 @@ arg.presend  = 2
 argp.expand(arg)
 
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+arg.time = assert(tonumber(arg.time))
 
 verbose = arg.verbose
 
@@ -42,13 +43,13 @@ function null.on_connected(core)
   null.chno = core:start(NULL)
 end
 
-function null.on_started(ch0)
+function null.on_started(core, chno)
   trace(".. on_started")
   t0 = os.time()
 
   -- keep outgoing queue full
   for _=1,arg.presend do
-    assert(null.core:send_msg(null.chno, BUF))
+    assert(core:send_msg(chno, BUF))
   end
 end
 

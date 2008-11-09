@@ -117,12 +117,10 @@ function core:push(buffer)
 		-- blu_chan0_in() docs indicate there may be an error, too, I think that would
 		-- just happen if the RPY content contained xml that looked like <error>, but
 		-- I'm going to leave content decoding to the caller, and not try and return it.
-		-- FIXME - first argument has to be self!
-		self:_cb("on_started", chno, p.uri, p.content)
+		self:_cb("on_started", self, chno, p.uri, p.content)
 	      else
 		assert(ecode)
-		-- FIXME - first argument has to be self!
-		self:_cb("on_start_err", chno, ecode, emsg, elang)
+		self:_cb("on_start_err", self, chno, ecode, emsg, elang)
 	      end
 	      chan0:destroy() -- free up beepcore memory, don't wait for gc
 	    else
@@ -316,10 +314,10 @@ Arguments:
   on_start=function(ch0): called with a request to start a channel, respond by
     calling ch0:accept() or ch0:reject()
 
-  on_started=function(chno, uri, content?): called to confirm a positive response to
+  on_started=function(core, chno, uri, content?): called to confirm a positive response to
     a channel start request, uri is the selected profile, and content is optional
 
-  on_start_err=function(chno, ecode, emsg, elang): called to confirm a negative response
+  on_start_err=function(core, chno, ecode, emsg, elang): called to confirm a negative response
     to a channel start request
 
   on_close = function(ch0):

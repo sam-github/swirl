@@ -33,12 +33,12 @@ function create(arg)
       ch0:accept(p.uri, p.content)
     end,
 
-    on_started = function(chno, uri, content)
-      print(c(nil), "on_started", chno, uri, q(content))
+    on_started = function(core, chno, uri, content)
+      print(c(core), "on_started", chno, uri, q(content))
     end,
 
-    on_start_err = function(chno, ecode, emsg, elang)
-      print(c(nil), "on_start_err", chno, ecode, q(emsg), elang)
+    on_start_err = function(core, chno, ecode, emsg, elang)
+      print(c(core), "on_start_err", chno, ecode, q(emsg), elang)
     end,
 
     on_close = function(ch0)
@@ -331,7 +331,7 @@ print"\n\n=== test start/err"
 ok = nil
 
 i = create{il="I",
-  on_start_err = function(chno, ecode, emsg, elang)
+  on_start_err = function(core, chno, ecode, emsg, elang)
     print("on_start_err", chno, ecode, emsg, elang)
     ok = (ecode == 500 and chno == 1)
   end,
