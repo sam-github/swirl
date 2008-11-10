@@ -1,3 +1,6 @@
+-- Swirl - an implementation of BEEP for Lua
+-- Copyright (c) 2008 Sam Roberts
+
 require"sockext"
 require"swirl"
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env lua
 
--- TODO factor common out of client+server
-
 NULL = "http://example.com/beep/null"
 
 require"argp"

@@ -1,0 +1,40 @@
+*
+
+I'm pretty sure profile content with embedded NUL screws things up, despite
+that its supposed to be transparently encoded by CBEEP.c.
+
+*
+
+Flow control - I need notifications when the send windows is full, and when it becomes
+open. I think the former is implemented by beepcore-c, but not the latter.
+
+*
+
+It's illegal to RPY to a MSG before the entire MSG is received, but the core
+allows this, and probably lots of other things that you should not do.
+
+*
+
+I ignore the notify_lower status change, but it looks like it might indicate
+improper API use and protocol errors. 
+
+*
+
+I don't see how to know when a server is quiescent, how to know when to close
+the socket.
+
+  CBEEP.c:2344: /* Don't destroy channel 0 - wait for channel 0 status of 5 - then session destroy */
+
+But... chan0 never gets quiescent! WTF? Where does quiescent get set, but not
+qempty?
+
+I think that as soon as the closer of channel zero gets an affirmative reply,
+it closes. It shouldn't have asked if its not willing, and the server shouldn't
+have accepted if it wasn't willing to close all its connections.
+
+Also, I think the initiator of a close gets closed state, other only ever gets
+half-closed.
+
+This needs more investigation, but works from the client side, it's OK to close
+the socket after receiving a positive reply (on_closed).
+

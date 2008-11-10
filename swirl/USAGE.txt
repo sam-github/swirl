@@ -1,0 +1,129 @@
+Some notes on API usage.
+
+See inline docs in swirl.lua and swirl.c for more detailed API docs.
+
+* Terminology
+
+Listener - passive peer, the one that accepts the TCP connection
+
+Initiator - active peer, the one that initiates the TCP connection
+
+Client - the peer that sends a message, or sends a request to start or close a
+channel
+
+Server - the peer that receives a message, or receives a request to start or
+close a channel
+
+
+* Flow Control
+
+Make sure that frames received in on_ handlers have :destroy() called on them
+when they have been processed. Not doing so will cause flow of messages to
+stop. This is a feature!
+
+
+* Session Establishment
+
+Accepted profiles need to be known at time of session creation, because they
+are listed in session initialization message (the greeting). These are the
+profiles for which a start may be accepted (i.e., server profiles).
+
+
+> greeting:
+    features?
+    localize?
+    profile*
+      profile: -- no content!
+        uri
+
+Normal act of creating a session.
+
+> err:
+    code
+    msg?
+    lang?
+
+The listener can refuse to accept a session. This might be because of a policy
+violation (too many connections, not willing to accept from the initiators IP,
+etc.), for example.
+
+
+* Channel Start
+
+> start:
+    profile+
+      profile:
+        uri
+	  -- profile is identified by URI
+	content?
+	  -- optional content, meaningful for this profile
+	encoding?
+	  -- whether content is base64 encoded, defaults to false
+	  -- internal: handled by the core
+    chno -- allocated by core
+    servername? -- if accepted, holds for whole session, but is generally
+      -- useful only for tuning
+
+Client calls :start(), server gets on_start(ch0).
+
+< accept:
+    profile
+      uri
+
+Server calls ch0:accept(), client gets on_started().
+
+< reject:
+    error:
+      code
+        -- error code, see appendix of RFC 3080
+      msg
+        -- diagnostic message
+      lang
+        -- language of message
+
+Server calls ch0:reject(), client gets on_start_err().
+
+
+> close:
+    chno
+    code
+      -- should default to 200/success
+    msg?
+    lang?
+
+Active calls :close(), passive gets on_close(ch0).
+
+< ok:
+
+Passive calls ch:accept(), active gets on_closed().
+
+< err:
+    code
+    msg?
+    lang?
+
+
+Passive calls ch:reject(), active gets on_close_err().
+
+
+** Session Close
+
+A close on channel 0 is a request to close the connection. The transport is closed.
+
+NOTE - the RFC doesn't say whether or not this can be done when there are other
+channels still open (but quiescent), or if it can be done with channels still
+open with unfinished message exchanges.
+
+
+Write example using swirl of a server with random delays to messages,
+countering the necessity of the "asynch" draft.
+
+
+
+** Message Exchange
+
+send_msg()/send_rpy()
+send_msg()/send_err()
+send_msg()/send_ans()..., send_nul()
+
+

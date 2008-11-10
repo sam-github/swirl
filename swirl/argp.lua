@@ -1,3 +1,6 @@
+-- Copyright (c) 2008 Sam Roberts
+-- This file is placed in the public domain.
+
 local ipairs = ipairs
 local find = string.find
 

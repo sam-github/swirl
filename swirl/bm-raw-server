@@ -1,6 +1,4 @@
 #!/usr/bin/env lua
---[[
-]]
 
 require"quote"
 require"socket"

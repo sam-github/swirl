@@ -1,0 +1,30 @@
+Todo:
+
+x factor socket pull/push into swirlsock
+  x implement
+  x convert bm to use swirlsock
+  x convert ex-chat to use swirlsock
+
+- "async" server
+  - need loop.delay()
+    - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
+
+- auto-accumulation of msg payload
+
+- cores aren't being GCed until lua state is destroyed, why not?
+
+- release
+  - Makefile working on Linux
+  - document
+  - push src
+  - announce
+
+- tune performance
+  - intra toolkit
+    - vortex
+    - beep4j
+  - intra-machine
+  - make it fast, see:
+      http://sourceforge.net/projects/simple3195/
+      RFC 813
+

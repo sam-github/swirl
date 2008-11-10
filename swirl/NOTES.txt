@@ -1,208 +1,9 @@
-Todo:
-
-- factor socket pull/push into swirlsock
-  x implement
-  x convert bm to use swirlsock
-  - convert ex-chat to use swirlsock
-  - unit test swirlsock
-
-- "async" server
-  - need loop.delay()
-    - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
-
-- auto-accumulation of msg payload
-
-- triage bugs
-
-- release
-  - document
-  - push src
-  - announce
-
-- tune performance
-  - intra toolkit
-    - vortex
-    - beep4j
-  - intra-machine
-  - make it fast, see:
-      http://sourceforge.net/projects/simple3195/
-      RFC 813
 
 See:
 
-http://beepcore-c.sourceforge.net/
-http://www.beepcore.org/
-http://www.lua.org/
-
-Note:
-
-Since beepcore-c is an abandoned project, it might seem odd that I should use
-it to implement swirl. I chose it because its architecture seems to be designed
-for ease of embedding in a host language. It's architecture is described here:
-
-http://beepcore-c.sourceforge.net/Architecture.html
-
-Swirl discards the multi-threaded, overly complex, and overly ambitious wrapper
-portions of the library, and is implemented directly on the "core".
-
-
-BUG I'm pretty sure profile content with embedded NUL screws things up, despite
-that its supposed to be transparently encoded.
-
-
-BUG cores aren't being GCed until lua state is destroyed, why not?
-
-
-BUG it's illegal to RPY to a MSG before the entire MSG is received, but the
-core allows this, and probably lots of other things
-
-
-BUG I ignore the notify_lower status change, but it looks like it might indicate improper api use
-
-
-BUG I don't see how to know when a session is quiescent, how to know when to close the socket.
-
-    CBEEP.c:2344: /* Don't destroy channel 0 - wait for channel 0 status of 5 - then session destroy */
-
-  But... chan0 never gets quiescent! WTF? Where does quiescent get set, but not qempty?
-
-  I think that as soon as the closer of channel zero gets an affirmative reply,
-  it closes. It shouldn't have asked if its not willing, and the server
-  shouldn't have accepted if it wasn't willing to close all its connections.
-
-  Also, I think the initiator of a close gets closed state, other only ever gets half-closed.
-
-
-* Terminology
-
-Listener - passive peer, the one that accepts the TCP connection
-
-Initiator - active peer, the one that initiates the TCP connection
-
-Client - the peer that sends a message, or sends a request to start or close a
-channel
-
-Server - the peer that receives a message, or receives a request to start or
-close a channel
-
-* Flow Control
-
-Make sure that frames received in on_ handlers have :destroy() called on them
-when they have been processed. Not doing so will cause flow of messages to
-stop. This is a feature!
-
-
-* Session Establishment
-
-Accepted profiles need to be known at time of session creation, because they
-are listed in session initialization message (the greeting). These are the
-profiles for which a start may be accepted (i.e., server profiles).
-
-
-> greeting:
-    features?
-    localize?
-    profile*
-      profile: -- no content!
-        uri
-
-Normal act of creating a session.
-
-> err:
-    code
-    msg?
-    lang?
-
-The listener can refuse to accept a session. This might be because of a policy
-violation (too many connections, not willing to accept from the initiators IP,
-etc.), for example.
-
-
-* Channel Start
-
-> start:
-    profile+
-      profile:
-        uri
-	  -- profile is identified by URI
-	content?
-	  -- optional content, meaningful for this profile
-	encoding?
-	  -- whether content is base64 encoded, defaults to false
-	  -- internal: handled by the core
-    chno -- allocated by core
-    servername? -- if accepted, holds for whole session, but is generally
-      -- useful only for tuning
-
-Client calls :start(), server gets on_start(ch0).
-
-< accept:
-    profile
-      uri
-
-Server calls ch0:accept(), client gets on_started().
-
-< reject:
-    error:
-      code
-        -- error code, see appendix of RFC 3080
-      msg
-        -- diagnostic message
-      lang
-        -- language of message
-
-Server calls ch0:reject(), client gets on_start_err().
-
-
-> close:
-    chno
-    code
-      -- should default to 200/success
-    msg?
-    lang?
-
-Active calls :close(), passive gets on_close(ch0).
-
-< ok:
-
-Passive calls ch:accept(), active gets on_closed().
-
-< err:
-    code
-    msg?
-    lang?
-
-
-Passive calls ch:reject(), active gets on_close_err().
-
-
-** Session Close
-
-A close on channel 0 is a request to close the connection. The transport is closed.
-
-NOTE - the RFC doesn't say whether or not this can be done when there are other
-channels still open (but quiescent), or if it can be done with channels still
-open with unfinished message exchanges.
-
-
-Write example using swirl of a server with random delays to messages,
-countering the necessity of the "asynch" draft.
-
-
-
-** Message Exchange
-
-send_msg()/send_rpy()
-send_msg()/send_err()
-send_msg()/send_ans()..., send_nul()
-
-
-
-http://www.aspl.es/vortex/btf.html
-
 http://www.beepcore.org/seq_frames.html
 
-
+http://www.aspl.es/vortex/btf.html
 
 http://lua-users.org/wiki/FinalizedExceptions
 
@@ -226,7 +27,6 @@ them the choice of accumulating larger frames, or saying it's invalid.
 
 ** Benchmark v1 (obsolete)
 
-
 benchmark comparing single channel msg/rpy over beep with similar over tcp
 
 tcp just writes the data raw, with no framing, then writes a single byte back
@@ -239,7 +39,6 @@ That seems to be about 30% of max, not sure if this is good, but it isn't
 awful, either.
 
 Profiling is required!
-
 
 ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua tcp 4321 localhost 5
 done t=6 msgs=5745 msgs/sec=957.500000 bytes/sec=4787500.000000

@@ -1,3 +1,6 @@
+-- Swirl - an implementation of BEEP for Lua
+-- Copyright (c) 2008 Sam Roberts
+
 local socket = require"socket"
 local table = table
 
@@ -37,8 +40,8 @@ If pattern is not "*f", is identical to client:receive().
 
 Otherwise, return as much data as is available, up to size bytes.  If size is
 not specified, it defaults to 4096. This is useful for dealing with a TCP
-stream without knowing the protocol. I.e., transparent proxying of TCP segment
-data as it arrives.
+stream without knowing the protocol. I.e., transparent proxying of TCP data as
+it arrives.
 
 This pattern requires setting client's timeout to 0, for non-blocking behaviour.
 ]]
@@ -46,7 +49,6 @@ function receive(client, pattern, prefix)
   if pattern ~= "*f" then
     return client:receive(pattern, prefix)
   end
-  client:settimeout(0)
 
   local size = assert(tonumber(prefix or 4096))
   local data, emsg, partial = client:receive(size)

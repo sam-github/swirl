@@ -1,3 +1,8 @@
+/*
+Very common utilities for binding C libraries into Lua.
+Copyright (c) 2008 Sam Roberts
+This file is placed in the public domain.
+*/
 
 /** debug support **/
 
