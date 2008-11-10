@@ -39,6 +39,10 @@ end
 
 local methods = getmetatable(swirl._core(function()end, function()end))
 
+local function write_error(emsg)
+  io.stderr:write(emsg.."\n")
+end
+
 function methods:_cb(cb, ...)
   --print("-> _cb "..cb, ...)
   local fncb = self._arg[cb]
@@ -48,7 +52,7 @@ function methods:_cb(cb, ...)
     if ok then
       return unpack(result)
     end
-    (self._arg.on_error or print)(cb.." failed with "..result[1])
+    (self._arg.on_error or write_error)(cb.." failed with "..result[1])
   end
 end
 
@@ -270,10 +274,11 @@ local function notify_lower(lower, op, ...)
     print(c(lower.self), "notify lower", op, status, text, chno)
     lower.status = {status=status, text=text, chno=chno}
   else
-    -- print(c(lower.self), "notify lower", op)
+    --print(c(lower.self), "notify lower", op)
     lower[op] = true
   end
   local cb = opcb[op]
+  --print("@", cb, lower.self, lower.self._arg.on_pullable)
   if cb and lower.self then
     lower.self:_cb(cb, lower.self)
   end
@@ -288,14 +293,12 @@ end
 - core = swirl.core{...}
 
 Arguments:
-  il=[I|L] whether this core is an initiator or listener, default is initiator (it effects the
-    channel numbering, so each of the peers must be one or the other, with TCP, the side
-    that does the connect() is the initiator, and the side that does the accept() is the
-    listener).
+  il=[I|L] whether this core is an initiator or listener, default is initiator
+    This affects the channel numbering, so each of the peers must be one or the
+    other, with TCP, the side that does the connect() is the initiator, and the
+    side that does the accept() is the listener.
 
-  profile = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
-
-    TODO pluralize to "profiles"?
+  profiles = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
 
   error = {ecode, emsg, elang}: a listener may refuse to accept a connection, providing
     an indication why
@@ -310,7 +313,6 @@ Arguments:
     localize: a string of tokens describing languages preferred in textual elements of close
       and error messages, or nil (rarely supported)
     TODO - greeting info should be saved for later querying?
-    TODO - is it a BEEP protocol error to request a connection for an unadvertised profile?
 
   on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
 
@@ -327,7 +329,8 @@ Arguments:
 
   on_closed = function(core, chno):
 
-  on_close_err = :
+  on_close_err =
+    TODO - not implemented
 
   on_msg = function(frame):
 
@@ -335,10 +338,11 @@ Arguments:
   on_pullable = function(core): data is available via :pull(). Note carefully that no
     swirl calls may be made in this function. It is useful to adjust the select/poll
     set, for example, or to unblock a thread reading from the core, and writing to
-    the peer. Sessions are always pullable after creation.
+    the peer. The core is always pullable after creation (it needs to send its
+    greeting).
 
-  on_pushable = function(core): space is available for data to be :push()ed. The same
-    notes as above apply to this callback. The core is always pushable after creation.
+    A core is always pushable, so no notification callbacks exist for this
+    condition. Push data whenever it is received from the peer.
 
 ]]
 function core(arg)
@@ -348,7 +352,7 @@ function core(arg)
   local lower = { }
   local upper = { }
 
-  assert(not arg.profiles)
+  assert(not arg.profile)
 
   local self = swirl._core(
     function(...) notify_lower(lower, ...) end,
@@ -356,7 +360,7 @@ function core(arg)
     arg.il,
     nil, -- features
     nil, -- localize
-    arg.profile or {},
+    arg.profiles or {},
     arg.error
     )
 

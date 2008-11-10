@@ -1,6 +1,8 @@
 require"sockext"
 require"swirl"
 
+swirl.loop = sockext.loop
+
 local loop = sockext.loop
 
 local map = {}
@@ -16,7 +18,10 @@ local function send(client)
   local core = map[client]
   local data = core:pull()
 
-  if not data then return end
+  if not data then
+    loop.send(client)
+    return
+  end
 
   local sz, emsg = client:send(data)
 
@@ -52,6 +57,11 @@ local function start(client, arg)
   assert(client:settimeout(0))
   assert(client:setoption("tcp-nodelay", true))
 
+  -- get pullable notifications (core is always pushable, so don't bother with those)
+  function arg.on_pullable(core)
+    loop.send(core._client, send)
+  end
+
   local core = swirl.core(arg)
 
   core._client = client
@@ -59,6 +69,8 @@ local function start(client, arg)
 
   loop.receive(client, receive)
   loop.send(client, send)
+
+  return core
 end
 
 local function accept(server, arg)
@@ -88,6 +100,8 @@ create a core for the client.
 The core will call on_connected() when the BEEP connection has been established,
 at which point channels can be started.
 
+Returns server socket on succes, or nil and an error message on failure.
+
 ]]
 function swirl.listen(arg, port, host)
   if not arg.on_accept then
@@ -115,6 +129,8 @@ Connect to host and port (host is optional, and defaults to "localhost")
 The core will call on_connected() when the BEEP connection has been established
 (or on_connect_fail() if it the connection was rejected), at which point
 channels can be started.
+
+Returns client socket on succes, or nil and an error message on failure.
 ]]
 function swirl.connect(arg, port, host)
   arg.il = "I"

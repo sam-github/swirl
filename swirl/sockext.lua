@@ -112,7 +112,7 @@ function loop.start()
   assert((#qrd + #qwr) > 0, "Nothing to loop for")
   looping = true
   while looping do
-    --print("select q", q(array(qrd)), q(array(qwr)))
+    --print("select q", "r="..q(array(qrd)), "w="..q(array(qwr)))
 
     if #qrd + #qwr == 0 then
       -- don't block forever on empty socket lists
@@ -122,7 +122,7 @@ function loop.start()
 
     local ard, awr, err = socket.select(qrd, qwr)
 
-    --print("select a", q(array(qrd)), q(array(qwr)))
+    --print("select a", "r="..q(array(qrd)), "w="..q(array(qwr)))
 
     local function call(events, actions)
       for i,sock in ipairs(events) do

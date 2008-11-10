@@ -1,25 +1,16 @@
 #!/usr/bin/env lua
 
 require"quote"
-require"socket"
-require"sockext"
-require"swirl"
+require"swirlsock"
 
 
--- Setup
-
-loop = sockext.loop
+-- Arguments
 
 q = quote.quote
 
 CHAT = "http://example.com/beep/chat"
 
 USAGE = "usage: "..arg[0].." <port>"
-
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
-end
 
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
 
@@ -36,6 +27,7 @@ function join(core, chno, name)
   else
     print("ADD USER", q(name))
     core.user = { name = name, chno = chno }
+    users[name] = core
   end
 end
 
@@ -56,7 +48,7 @@ function speak(core, payload, more)
   print(core.user.msg)
 
   -- send msg to all users other than ours
-  for k,other in pairs(users) do
+  for _,other in pairs(users) do
     if other ~= core  and other.user then
       print("@", q(other.user.name))
       other:send_msg(other.user.chno, core.user.name.." says "..q(core.user.msg))
@@ -69,7 +61,9 @@ end
 
 -- Bind swirl to chat server
 
-chat = {il="L", profile = {CHAT}}
+chat = {
+  profiles = {CHAT}
+}
 
 function chat.on_start(ch0)
   print(".. on_start:", ch0:channelno(), q(ch0:profiles()), q(ch0:servername()))
@@ -116,94 +110,11 @@ function chat.on_msg(frame)
   frame:destroy()
 end
 
-function chat.on_pullable(core)
-  print(".. on_pullable", q(core))
-  loop.send(core.client, send)
+function chat.on_disconnected(core, emsg)
+  print("DIED", core.user and core.user.name, emsg)
 end
 
-function chat.on_pushable(core)
-  print(".. on_pushable", q(core))
-  loop.receive(core.client, receive)
-end
+swirl.listen(chat, port)
 
--- Bind loop to swirl
--- TODO with on_pushable and on_pullable, these lists could be managed without polling
-
-server = assert(socket.bind("*", port))
-server:settimeout(0)
-
-function accept(server)
-  print(".. accept from", q(server))
-  client = server:accept()
-  if not client then
-    -- oops, client died before we accepted
-  else
-    core = swirl.core(chat)
-    core.client = client
-    users[client] = core -- I can't index socket userdata, so map externally.
-    loop.receive(client, receive)
-    loop.send(client, send)
-  end
-end
-
-function clear(client)
-    loop.receive(client)
-    loop.send(client)
-    users[client] = nil
-end
-
-function send(client)
-  core = users[client]
-
-  local data = core:pull()
-
-  if not data then
-    loop.send(client)
-    return
-  end
-
-  if verbose then
-    print"--- I < L"
-    print(data)
-    print"---"
-  end
-
-  local sz, emsg = client:send(data)
-
-  if sz then
-    core:pulled(sz)
-  else
-    print("DIED", core.user and core.user.name, emsg)
-
-    clear(client)
-  end
-end
-
-function receive(client)
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
-  if data then
-    if verbose then
-      print"--- I > L"
-      print(data)
-      print"---"
-    end
-    local ok, emsg = users[client]:push(data)
-
-    if not ok then
-      local eno, emsg, echan = users[client]:status()
-      print("ERROR", eno, emsg, echan)
-    end
-  elseif emsg == "timeout" then
-    -- ignore
-  else
-    core = users[client]
-    if core.user then
-      print("DIED", core.user and core.user.name, emsg)
-    end
-    clear(client)
-  end
-end
-
-loop.receive(server, accept)
-loop.start()
+swirl.loop.start()
 

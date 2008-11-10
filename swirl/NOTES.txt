@@ -10,6 +10,8 @@ Todo:
   - need loop.delay()
     - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
 
+- auto-accumulation of msg payload
+
 - triage bugs
 
 - release
@@ -216,6 +218,10 @@ per-channel. That would allow usual case to mean that you don't get small
 frames do to chopping a msg to fit in window, but still completely leave up to
 them the choice of accumulating larger frames, or saying it's invalid.
 
+
+** BEEP questions:
+
+- is it a BEEP protocol error to request a connection for an unadvertised profile?
 
 
 ** Benchmark v1 (obsolete)

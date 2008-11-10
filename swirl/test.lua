@@ -147,7 +147,7 @@ print"\n\n=== test connect/ok w/zero profiles"
 
 ok = 0
 
-i = create{il="I", profile={},
+i = create{il="I", profiles={},
   on_connected=function(core, profiles, features, localize)
     print("on_connected", q(core), q(profiles), q(features), q(localize))
     ok = ok + #profiles
@@ -170,14 +170,14 @@ print"\n\n=== test connect/ok w/one+one profiles"
 
 ok = 0
 
-i = create{il="I", profile={"http://example.com/I"},
+i = create{il="I", profiles={"http://example.com/I"},
   on_connected=function(core, profiles, features, localize)
     print("on_connected", core, q(profiles), q(features), q(localize))
     ok = ok + #profiles
   end,
 }
 
-l = create{il="L", profile={"http://example.com/L"},
+l = create{il="L", profiles={"http://example.com/L"},
   on_connected=function(core, profiles, features, localize)
     print("on_connected", core, q(profiles), q(features), q(localize))
     ok = ok + #profiles
@@ -200,7 +200,7 @@ i = create{il="I",
   end,
 }
 
-l = create{il="L", profile={"http://example.com/L1", "http://example.com/L2"},
+l = create{il="L", profiles={"http://example.com/L1", "http://example.com/L2"},
   on_connected=function(core, profiles, features, localize)
     print("on_connected", q(profiles), q(features), q(localize))
     ok = ok + #profiles

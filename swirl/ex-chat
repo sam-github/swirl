@@ -1,27 +1,22 @@
 #!/usr/bin/env lua
 
 require"quote"
-require"sockext"
-require"swirl"
+require"swirlsock"
 
 
 -- Setup
 
-loop = sockext.loop
-
 q = quote.quote
 
-URI = "http://example.com/beep/chat"
+CHAT = "http://example.com/beep/chat"
 
 USAGE = "usage: "..arg[0].." <port> [host]"
 
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
-end
-
 port = assert(tonumber(arg[1]), "no port\n"..USAGE)
-host = arg[2] or "localhost"
+host = arg[2]
+verbose = false
+
+local print = print
 
 if not verbose then
   print = function () end
@@ -30,69 +25,57 @@ end
 io.stdout:setvbuf"no"
 
 local file
-local client
 local core
+local chno
 
--- We handle 3 loop events: receive/send on client, and receive on file.
+-- When a file is selected as readable, read a whole line (I know there isn't
+-- guaranteed to be a full line, but this is a swirl example, not a console-IO-
+-- with-lua example).
+--
+-- Reading doesn't start until the channel has started.
+
+file = sockext.selectable(0)
 
 function read(file)
-  print(".. read", q(line))
   local line = io.read"*l"
+
+  print(".. read", q(line))
+
   if not line then
-    -- end of chat
+    -- end of chat, request to close BEEP session by closing channel zero
     core:close(0)
-    loop.receive(file)
+    swirl.loop.receive(file)
   else
     core:send_msg(chno, line)
-    --io.stdout:write"> "
-  end
-  -- core state has changed, it may be pullable
-  loop.send(client, send)
-end
-
-function receive(client)
-  print(".. receive")
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
-  if data then
-    core:push(data)
-    -- core state has changed, it may be pullable
-    loop.send(client, send)
-  elseif emsg == "closed" then
-    os.exit(0)
-  else
-    io.stderr:write("unexpected error on socket - "..emsg)
-    os.exit(1)
   end
 end
 
-function send(client)
-  print(".. send")
-  local data = core:pull()
-  if not data then
-    loop.send(client)
-  else
-    local sz = assert(client:send(data))
-    core:pulled(sz)
-  end
-end
 
-local chat = {il="I"}
+local chat = {}
 
-function chat.on_connected()
+function chat.on_connected(_core)
   print(".. connected")
-  core:start(URI, os.getenv"USER" or "anonymous")
+  core = _core
+  chno = assert(core:start(CHAT, os.getenv"USER" or "anonymous"))
 end
 
-function chat.on_started(core, _chno)
-  print(".. started", _chno)
-  chno = _chno
-  -- ready to start reading
-  --io.stdout:write"> "
-  loop.receive(file, read)
+function chat.on_disconnected(core, emsg)
+  -- This is always unexpected, we don't get disconnected unless we asked, in
+  -- which case we would have exited in the on_closed()
+  io.stderr:write("unexpected error on socket - "..emsg.."\n")
+  os.exit(1)
+end
+
+function chat.on_started(core, chno)
+  print(".. started", chno)
+
+  -- ready to start reading from the file, now
+  swirl.loop.receive(file, read)
 end
 
 function chat.on_start_err(core, chno, ecode, emsg, elang)
   error(string.format("error %d, %s", ecode, emsg or swirl.ecodes[ecode] or "unknown"))
+  os.exit(1)
 end
 
 function chat.on_closed()
@@ -100,28 +83,26 @@ function chat.on_closed()
   os.exit(0)
 end
 
+function chat.on_close_error(core, chno, ecode, emsg)
+  print(".. close failed")
+  os.exit(0)
+end
+
 function chat.on_msg(frame)
   print(".. on_msg", frame, q(frame:payload()))
   local out = frame:payload()
+
+  -- format with leading "|" so it looks quoted
   out = out:gsub("\r", "")
   out = out:gsub("\n", "\n| ")
   io.stdout:write("| ", out, "\n")
   if not frame:more() then
-    core:send_rpy(frame:channelno(), frame:messageno(), "")
+    frame:core():send_rpy(frame:channelno(), frame:messageno(), "")
   end
 end
 
-function chat.on_pullable(core)
-  print(".. on_pullable")
-  loop.send(client, send)
-end
 
-file = sockext.selectable(0)
-client = assert(socket.connect(host, port))
-core = swirl.core(chat)
+assert(swirl.connect(chat, port, host))
 
-loop.receive(client, receive)
-loop.send(client, send)
-
-loop.start()
+swirl.loop.start()
 
