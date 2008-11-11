@@ -20,9 +20,11 @@ sockets.
 
 My goals are to confirm that beepcore-c works well, and is easy to bind into
 another language. I started with Lua because its simple (and fun), but I don't
-have any active projects that need this. I plan to take what I learn and
-produce a binding into Python's Twisted network stack, next, and if I ever need
-a BEEP library for Ruby, I'll know how to make one easily.
+have any active projects that need BEEP for Lua.
+
+I hope to take what I learn and produce a binding into Python's Twisted network
+stack, next, and if I ever need a BEEP library for Ruby, I'll know how to make
+one easily.
 
 
 * Benchmarking
@@ -73,6 +75,7 @@ http://www.tecgraf.puc-rio.br/luasocket/
 
 * Contact
 
-Comments, patches, feedback, etc. to Sam Roberts <vieuxtech@gmail.com>
+Please direct suggestions, patches, offers to pay for continued development,
+etc., to Sam Roberts <vieuxtech@gmail.com>
 
 

@@ -1,0 +1,28 @@
+-- Swirl:
+
+These are built by the top-level Makefile.
+
+./config
+
+  may need to be modified to customize the build
+
+./beepcore-c
+
+  beepcore C library (only some of it is used by swirl)
+
+./lua
+
+  swirl's lua binding
+
+
+-- Extra code:
+
+./qt
+
+  a chat client, written with Qt and vortex (an exercise in using
+  multi-threaded vortex in single-threaded Qt)
+
+./vortex
+
+  null benchmark client and server implemented with vortex
+

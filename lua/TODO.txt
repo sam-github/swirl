@@ -1,22 +1,18 @@
 Todo:
 
-x factor socket pull/push into swirlsock
-  x implement
-  x convert bm to use swirlsock
-  x convert ex-chat to use swirlsock
-
 - "async" server
   - need loop.delay()
     - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
 
 - auto-accumulation of msg payload
 
-- cores aren't being GCed until lua state is destroyed, why not?
+- cores aren't being GCed until lua state is destroyed?
 
 - release
-  - Makefile working on Linux
-  - document
+  - install target
+  - extract documentation
   - push src
+  - Makefile working on Linux
   - announce
 
 - tune performance
