@@ -1,8 +1,6 @@
--- Swirl - an implementation of BEEP for Lua
--- Copyright (c) 2008 Sam Roberts
+#!/usr/bin/env lua
 
 require"swirl"
-
 require"quote"
 
 local q = quote.quote
