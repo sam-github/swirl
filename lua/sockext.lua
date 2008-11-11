@@ -4,20 +4,12 @@
 local socket = require"socket"
 local table = table
 
-require"quote"
-
-local q = quote.quote
-
-local array = function(t)
-  return {unpack(t)}
-end
-
 --[[-
 ** sockext
 
 Socket extensions.
 ]]
-module("sockext", package.seeall)
+module("sockext", package.seeall) -- TODO remove package.seeall
 
 --[[-
 Return an object that can be used with socket.select() to select on an
@@ -110,11 +102,26 @@ function loop.timeout(wait, fn)
   assert(nil, "not implemented")
 end
 
+-- Debug select loop:
+local q, array
+
+if loop._debug then
+  require"quote"
+
+  q = quote.quote
+
+  array = function(t)
+    return {unpack(t)}
+  end
+end
+
 function loop.start()
   assert((#qrd + #qwr) > 0, "Nothing to loop for")
   looping = true
   while looping do
-    --print("select q", "r="..q(array(qrd)), "w="..q(array(qwr)))
+    if loop._debug then
+      print("select q", "r="..q(array(qrd)), "w="..q(array(qwr)))
+    end
 
     if #qrd + #qwr == 0 then
       -- don't block forever on empty socket lists
@@ -124,7 +131,9 @@ function loop.start()
 
     local ard, awr, err = socket.select(qrd, qwr)
 
-    --print("select a", "r="..q(array(qrd)), "w="..q(array(qwr)))
+    if loop._debug then
+      print("select a", "r="..q(array(qrd)), "w="..q(array(qwr)))
+    end
 
     local function call(events, actions)
       for i,sock in ipairs(events) do
