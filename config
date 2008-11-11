@@ -1,18 +1,42 @@
 # Debug and warning:
-LDFLAGS= -g
-CFLAGS+= -g -Wall -Werror
+LDFLAGS+=-g
+CFLAGS+=-g
+CFLAGS+=-O2
+CFLAGS+=-Wall -Werror
 
 # Lua setup:
 
 #LUACFLAGS+=-I/usr/local/include
 
 
-# Building a .so on OS X:
+# Install:
+prefix=/usr/local
+INSTALL_TOP_SHARE=$(prefix)/share/lua/5.1
+INSTALL_TOP_LIB=$(prefix)/lib/lua/5.1
 
-MACOSX_DEPLOYMENT_TARGET=10.3
-export MACOSX_DEPLOYMENT_TARGET
+CP=cp -v
+MKDIR=mkdir -p
+
+SOEXT=so
+SOSWIRL=swirl.$(SOEXT)
+
+# Building on OS X:
 
 LUACFLAGS+=-fno-common
 LUALDFLAGS+=-bundle -undefined dynamic_lookup
 LUALDFLAGS+=-bind_at_load
+
+LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
+
+# Building on Linux:
+#CC=gcc
+#DEF=-DLUASOCKET_DEBUG 
+#CFLAGS= $(LUAINC) $(DEF) -pedantic -Wall -O2 -fpic
+#LDFLAGS=-O -shared -fpic
+#LD=gcc 
+
+# Stow:
+stow: build
+	sudo $(MAKE) install prefix=/usr/local/stow/swirl
+	cd /usr/local/stow; sudo stow swirl
 

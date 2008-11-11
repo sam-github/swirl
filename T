@@ -1,13 +1,11 @@
 #!/bin/sh
 
-C=../beepcore-c/core
-L=./local
+L=~/p/lua/root/local/lua-5.1.4
 
 x="$C $A $G $L"
 
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c *.h
-
+ctags --if0=yes --file-tags=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x .
 

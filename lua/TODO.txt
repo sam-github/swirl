@@ -9,7 +9,6 @@ Todo:
 - cores aren't being GCed until lua state is destroyed?
 
 - release
-  - install target
   - extract documentation
   - push src
   - Makefile working on Linux
