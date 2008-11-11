@@ -137,14 +137,14 @@ struct chan0_msg * chan0_msg_parse (struct session * session,
 					struct frame * chan0_frame) {
   struct frame * thisframe;
   struct chan0_msg mychan0_msg, * mychan0_ptr = NULL;
-  struct profile * profilelist = NULL, * thisprofile, * newprofile = NULL;
+  struct profile * profilelist = NULL, * thisprofile = NULL, * newprofile = NULL;
   struct profile ** current_profile = NULL;
   char ** current_string = NULL;
 
-  char * currchar, * matchstr, * matchfailstr, * thischar;
+  char * currchar, * matchstr = NULL, * matchfailstr = NULL, * thischar;
   char * stringseg;
   long segsize, currbyte, stringsegsize, chan0msgsize, profileC;
-  long parselevel, stridx, matchstridx;
+  long parselevel, stridx=0, matchstridx = 0;
 
   long  state[CHAN0_PARSE_STATE_MAX_DEPTH], stateidx = 0;
   char * elementnamestack[CHAN0_PARSE_STATE_MAX_DEPTH];

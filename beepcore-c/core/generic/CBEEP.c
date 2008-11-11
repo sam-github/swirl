@@ -60,7 +60,7 @@ static char * fmt_error(struct session * s, struct diagnostic * e) {
   int lang;
   char * result;
 
-  // The size calculation below assumes ecode is small (a bug?), so check.
+  /* SR The size calculation below assumes ecode is small (a bug?), so check. */
   PRE(e->code <= 999);
 
   lang = (e->lang != NULL && e->lang[0] != '\0');
@@ -103,7 +103,7 @@ static char * fmt_greeting(struct session * s, char * * profiles,
   PRE(profiles != NULL);
 
   /* First figure out how big it will be, or a little bigger. */
-  size = 1; // for the trailing null
+  size = 1; /* for the trailing null */
   size += strlen(greet_head_1);
   if (features && *features) {
     size += strlen(greet_head_2) + strlen(features);
@@ -1465,7 +1465,7 @@ void bll_in_count(struct session * s, size_t size) {
   char * nl;
 
   PRE(size <= s->in_buffer.iovec[0].iov_len);
-  (s->in_buffer.iovec[0].iov_base) = (s->in_buffer.iovec[0].iov_base) + size;
+  s->in_buffer.iovec[0].iov_base = (char*) (s->in_buffer.iovec[0].iov_base) + size;
   s->in_buffer.iovec[0].iov_len -= size;
   ((char*)(s->in_buffer.iovec[0].iov_base))[0] = '\0';
 
@@ -2108,7 +2108,7 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
 
     if(c == NULL && !s->remote_greeting &&
 	cz->channel_number == 0 && cz->message_number == 0) {
-      // it's a greeting confirmation, with an error
+      /* it's a greeting confirmation, with an error */
       cz->op_sc = 'g';
     } else {
 
@@ -2223,12 +2223,12 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
   } else {
     /* Must be greeting */
     ASSERT(cz->op_sc == 'g');
-    // SR - I don't know what the history of this code is, but its obviously
-    // been heavily hacked up. The comments don't make sense anymore
-    // (remote_greeting is never referenced anywhere, a good thing because
-    // doing so would segf, its destroyed by our caller!), also it looks like
-    // there was support for a while for saving the greeting information, but
-    // all references to that have been commented out of the code base.
+    /* SR - I don't know what the history of this code is, but its obviously
+     * been heavily hacked up. The comments don't make sense anymore
+     * (remote_greeting is never referenced anywhere, a good thing because
+     * doing so would segf, its destroyed by our caller!), also it looks like
+     * there was support for a while for saving the greeting information, but
+     * all references to that have been commented out of the code base. */
     s->remote_greeting = cz; /* This gets disposed at session_destroy */
     if (cz->error != NULL) {
       /* We got an error, not a greeting */
