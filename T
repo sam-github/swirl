@@ -1,16 +1,13 @@
 #!/bin/sh
 
-V=~/p/beep/vortex/svn-vortex/src
-A=~/p/beep/vortex/svn-axl/src
-G=~/s/glib-2.12.4/g*/*.[ch]
-#L=~/p/lua/local
+C=../beepcore-c/core
 L=./local
 
-x="$V $A $G $L"
+x="$C $A $G $L"
 
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c
+ctags --if0=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm $x *.c *.h
 
 

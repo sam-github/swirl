@@ -1,0 +1,18 @@
+# Debug and warning:
+LDFLAGS= -g
+CFLAGS+= -g -Wall -Werror
+
+# Lua setup:
+
+#LUACFLAGS+=-I/usr/local/include
+
+
+# Building a .so on OS X:
+
+MACOSX_DEPLOYMENT_TARGET=10.3
+export MACOSX_DEPLOYMENT_TARGET
+
+LUACFLAGS+=-fno-common
+LUALDFLAGS+=-bundle -undefined dynamic_lookup
+LUALDFLAGS+=-bind_at_load
+

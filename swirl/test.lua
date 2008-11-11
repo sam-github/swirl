@@ -3,11 +3,9 @@
 
 require"swirl"
 
-require"table2str"
+require"quote"
 
-local function q(t)
-  return serialize(t)
-end
+local q = quote.quote
 
 local function c(s)
   if not s then return "[]" end
