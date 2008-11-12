@@ -2,7 +2,8 @@
 LDFLAGS+=-g
 CFLAGS+=-g
 CFLAGS+=-O2
-CFLAGS+=-Wall -Werror
+CFLAGS+=-Wall
+CFLAGS+=-Werror
 
 # Lua setup:
 

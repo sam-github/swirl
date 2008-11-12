@@ -1,6 +1,6 @@
 #!/bin/sh
 
-L=~/p/lua/root/local/lua-5.1.4
+L=~/p/lua/root/local/lua-5.1.4/src
 
 x="$C $A $G $L"
 

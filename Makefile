@@ -41,7 +41,8 @@ CFLAGS+=-Ibeepcore-c/include
 swirl: $(LLUA)
 
 test: $(LLUA)
-	cd swirl && lua lua-test
+	cd lua && lua gc-test
+	cd lua && lua core-test
 
 $(OLUA): CFLAGS+=$(LUACFLAGS)
 $(OLUA): $(HLUA)
