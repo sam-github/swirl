@@ -1,0 +1,95 @@
+#!/usr/bin/env lua
+
+require"swirl"
+
+require"quote"
+
+local q = quote.quote
+
+local gc = setmetatable({}, {__mode="v"})
+
+
+print"\n\n=== garbage collect: io"
+
+local i = assert(io.open("/tmp/_", "w"))
+
+print(i)
+
+table.insert(gc, i)
+
+collectgarbage()
+
+assert(#gc == 1)
+
+i = nil
+
+collectgarbage()
+
+assert(#gc == 0, "io was not released")
+
+
+
+print"\n\n=== garbage collect: swirl._core()"
+
+local function new()
+  -- create a minimal swirl.core userdata
+  local f = function() end
+  local c = assert(swirl._core(f, f, "I", "", "", {}))
+  print("new:", c)
+  table.insert(gc, c)
+  return c
+end
+
+function gctest()
+  local c = new()
+
+  print"..collect"
+
+  collectgarbage()
+
+  assert(#gc == 1)
+
+  print("swirl._cores", q(swirl._cores))
+
+  print"..unreference"
+
+  c = nil
+
+  print"..collect"
+
+  collectgarbage()
+
+  print"..check"
+
+  if #gc ~= 0 then
+    print("..unreleased=", q(swirl._cores))
+    for k,v in pairs(swirl._cores) do
+      print(k,v)
+    end
+
+    assert(#gc == 0, "core was not released")
+  end
+end
+
+gctest()
+
+print"\n..again\n"
+
+gctest()
+
+print"\n\n=== garbage collect: swirl.core()"
+
+function new()
+  -- create a minimal swirl.core userdata
+  local f = function() end
+  local c = assert(swirl.core{il="I"})
+  print("new:", c)
+  table.insert(gc, c)
+  return c
+end
+
+gctest()
+
+print"\n\n=== done"
+
+
