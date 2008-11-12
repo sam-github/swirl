@@ -1,7 +1,13 @@
 #!/usr/bin/env lua
 
-require"swirl"
 require"quote"
+require"swirl"
+
+local globals = {}
+
+for k,v in pairs(_G) do
+  globals[k] = true
+end
 
 local q = quote.quote
 
@@ -418,11 +424,13 @@ assert(ok)
 
 print"\n\n=== tests msg send/rpy +4K"
 
-msg = nil
+do
 
-sz = 4097
+  local msg = nil
+  local sz = 4097
+  local saveframe
 
-i = create{il="I",
+  i = create{il="I",
   on_rpy=function(frame)
     print("on_rpy",frame:channelno(), frame:messageno(), frame:more(), #frame:payload())
     msg = msg..frame:payload()
@@ -434,7 +442,7 @@ l = create{il="L"}
 
 pump(i,l)
 
-chno = i:start{profiles={{uri="http://example.org/beep/echo"}}}
+local chno = i:start{profiles={{uri="http://example.org/beep/echo"}}}
 
 pump(i,l)
 
@@ -442,7 +450,7 @@ print("=sz "..sz)
 
 local sent = ("x"):rep(sz)
 
-msgno = i:send_msg(chno, sent)
+local msgno = i:send_msg(chno, sent)
 
 msg = ""
 
@@ -460,15 +468,27 @@ end
 
 assert(msg == sent)
 
+end
 
 
 print"\n\n=== garbage collect"
 
 i = nil
 l = nil
+ok = nil
 
 collectgarbage()
 
+
+for k,v in pairs(_G) do
+  if not globals[k] then
+    print("_G", k, v)
+  end
+end
+
+print("swirl._cores empty?", q(swirl._cores))
+
+assert(#swirl._cores == 0, arg[0].." is leaking userdata!")
 
 print"\n\n=== done"
 

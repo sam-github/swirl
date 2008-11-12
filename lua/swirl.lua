@@ -242,26 +242,26 @@ end
 
 local opcb = {inready = "on_pushable", outready="on_pullable"}
 
-local function notify_lower(lower, op, ...)
+function methods:_notify_lower_cb(op, ...)
   if op == "status" then
     local status, text, chno = ...
     -- FIXME deal with errors!
-    print(c(lower.self), "notify lower", op, status, text, chno)
-    lower.status = {status=status, text=text, chno=chno}
+    print(c(self), "notify lower", op, status, text, chno)
+    self._lower.status = {status=status, text=text, chno=chno}
   else
-    --print(c(lower.self), "notify lower", op)
-    lower[op] = true
+    print(c(self), "notify lower", op)
+    self._lower[op] = true
   end
   local cb = opcb[op]
   --print("@", cb, lower.self, lower.self._arg.on_pullable)
-  if cb and lower.self then
-    lower.self:_cb(cb, lower.self)
+  if cb then
+    self:_cb(cb, self)
   end
 end
 
-local function notify_upper(upper, chno, op)
-  -- print(c(upper.self), "notify upper ch#", chno, op)
-  table.insert(upper, {chno, op})
+function methods:_notify_upper_cb(chno, op)
+  print(c(self), "notify upper ch#", chno, op)
+  table.insert(self._upper, {chno, op})
 end
 
 --[[
@@ -321,17 +321,11 @@ Arguments:
 
 ]]
 function core(arg)
-  -- The notify callbacks are called during core creation, so make sure that
-  -- they have a place to put their notifications before the core is returned
-  -- to us.
-  local lower = { }
-  local upper = { }
-
   assert(not arg.profile)
 
   local self = swirl._core(
-    function(...) notify_lower(lower, ...) end,
-    function(chno, op) notify_upper(upper, chno, op) end,
+    nil, -- TODO - remove later
+    nil, -- TODO - remove later
     arg.il,
     nil, -- features
     nil, -- localize
@@ -339,14 +333,10 @@ function core(arg)
     arg.error
     )
 
-  -- so notifications can reach the core's callbacks
-  lower.self = self
-  upper.self = self
-
   self._arg=arg
-  self._lower = lower -- lower layer notifications, op=true when pending
-  self._upper = upper -- upper layer notifications, pairs of {op, chno}
-  self._msgno = {}    -- map chno to the highest msgno that has been used
+  self._lower = {} -- lower layer notifications, op=true when pending
+  self._upper = {} -- upper layer notifications, pairs of {chno, op}
+  self._msgno = {} -- map chno to the highest msgno that has been used
 
   -- FIXME - if channel is closed, chno can be reused, so we need to clear these on close!
 

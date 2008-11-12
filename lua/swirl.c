@@ -442,8 +442,9 @@ struct Core
 {
   struct session* s;
 
+  // Can probably just be a struct session**, now, with it's user pointer being
+  // the lua_State
   lua_State* L;
-  int ref;
 };
 
 typedef struct Core* Core;
@@ -452,11 +453,28 @@ static lua_State* core_get_cb(struct session* s, const char* name)
 {
   Core c = blu_session_info_get(s);
   lua_State* L = c->L;
+  int top = lua_gettop(L);
 
-  lua_rawgeti(L, LUA_REGISTRYINDEX, c->ref);
+  lua_getglobal(L, "swirl");
+  lua_getfield(L, -1, "_cores");
+  lua_pushlightuserdata(L, s);
+  lua_gettable(L, -2);
+
+  lua_insert(L, top + 1);
+  lua_settop(L, top + 1);
+
+  if(lua_isnil(L, -1)) {
+    // Called during session_create(), before we've been given the session pointer.
+    lua_settop(L, top);
+    return NULL;
+  }
 
   lua_getfield(L, -1, name);
-  lua_remove(L, -2);
+
+  // Leave stack with [<cb fn>, <userdata>]
+  lua_insert(L, top+1);
+
+  assert(lua_gettop(L) == top + 2);
 
   return L;
 }
@@ -475,40 +493,48 @@ static void core_push_status(lua_State* L, struct session* s)
     lua_pushnil(L);
 }
 
+#define LOWER_CB "_notify_lower_cb"
+
 static void notify_lower_cb(struct session* s, int op)
 {
   static const char* opstr[] = { NULL, "status", "inready", "outready" };
-  lua_State* L = core_get_cb(s, "notify_lower");
+  lua_State* L = core_get_cb(s, LOWER_CB);
+  if(!L) return;
   lua_pushstring(L, opstr[op]);
   core_push_status(L, s);
-  v_pcall(L, "swirl notify_lower", 4, 0);
+  v_pcall(L, "swirl notify_lower", 5, 0);
 }
+
+#define UPPER_CB "_notify_upper_cb"
 
 static void notify_upper_cb( struct session * s, long chno, int op)
 {
   static const char* opstr[] = { NULL,
     "frame", "message", "qempty", "answered", "quiescent", "windowfull" };
-  lua_State* L = core_get_cb(s, "notify_upper");
+  lua_State* L = core_get_cb(s, UPPER_CB);
+  if(!L) return;
   lua_pushinteger(L, chno);
   lua_pushstring(L, opstr[op]);
-  v_pcall(L, "swirl notify_lower", 2, 0);
+  v_pcall(L, "swirl notify_lower", 3, 0);
 }
 
 /*
 - core = swirl.core(
-	1,2  notify_lower=FN, notify_upper=FN,
+	1,2  nil, nil,
+	        -- TODO - remove later
 	3    il=[I|L],
 	4    features=STR,
 	5    localize=STR,
 	6    profile={[STR],...},
 	7    error={ecode, emsg, elang},
 	     )
+
+core will call self:_upper_notify_cb() and self:_lower_notify_cb()
+
 */
 static int core_create(lua_State* L)
 {
   lua_settop(L, 7);
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  luaL_checktype(L, 2, LUA_TFUNCTION);
   char il = *luaL_optstring(L, 3, "I");
   // TODO error if il is not I or L
   const char* features = luaL_optlstring(L, 4, NULL, NULL);
@@ -552,7 +578,6 @@ static int core_create(lua_State* L)
   memset(c, 0, sizeof(*c));
 
   c->L = L;
-  c->ref = LUA_NOREF;
 
   // setmetatable(<core ud>, <core meta>)
   luaL_getmetatable(L, CORE_REGID);
@@ -562,19 +587,7 @@ static int core_create(lua_State* L)
   lua_newtable(L);
   lua_setfenv(L, -2);
 
-  // store the cb fns in the registry, so they can be found from C code
-  lua_newtable(L);
-
-  // t["notify_lower"] = fn
-  lua_pushvalue(L, 1);
-  lua_setfield(L, -2, "notify_lower");
-
-  // t["notify_upper"] = fn
-  lua_pushvalue(L, 2);
-  lua_setfield(L, -2, "notify_upper");
-
-  c->ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
+  // ready to create the session, now
   c->s = bll_session_create(
       malloc,
       free,
@@ -592,7 +605,15 @@ static int core_create(lua_State* L)
     return luaL_error(L, "%s", "bll_session_create failed");
   }
 
-  //fprintf(stderr, "mk core %p\n", lua_topointer(L, -1));
+  // Now we know the session's pointer value, we can use it to lookup the userdata.
+  lua_getglobal(L, "swirl");
+  lua_getfield(L, -1, "_cores");
+  lua_pushlightuserdata(L, c->s);
+  lua_pushvalue(L, -4);
+  lua_settable(L, -3);
+  lua_pop(L, 2);
+
+  //fprintf(stdout, "mk core %p\n", lua_topointer(L, -1));
 
   return 1;
 }
@@ -601,17 +622,11 @@ static int core_gc(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
 
-  //fprintf(stderr, "gc core %p\n", lua_topointer(L, 1));
+  //fprintf(stdout, "gc core %p\n", lua_topointer(L, 1));
 
   if(c->s) {
     bll_session_destroy(c->s);
     c->s = NULL;
-  }
-
-  if(c->ref != LUA_NOREF) {
-    lua_pushnil(L);
-    lua_rawseti(L, LUA_REGISTRYINDEX, c->ref);
-    c->ref = LUA_NOREF;
   }
 
   return 0;
@@ -938,6 +953,10 @@ int luaopen_swirl_core(lua_State* L)
   v_obj_metatable(L, CORE_REGID, core_methods);
 
   luaL_register(L, "swirl", swirl_methods);
+
+  // We'll need a weak-valued table for callbacks to find user data by pointer.
+  v_pushweaktable(L, "v");
+  lua_setfield(L, -2, "_cores");
 
   return 1;
 }

@@ -6,8 +6,6 @@ Todo:
 
 - auto-accumulation of msg payload
 
-- cores aren't being GCed until lua state is destroyed?
-
 - release
   - extract documentation
   - push src

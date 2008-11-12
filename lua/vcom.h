@@ -72,7 +72,7 @@ static int v_traceback (lua_State *L) {
 pcall wrapper, logging what errors, or aborting on internal errors (error
 handler failed, or out of memory)
 */
-static int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
+int v_pcall(lua_State* L, const char* what, int nargs, int nresults)
 {
   int err;
   int base = lua_gettop(L) - nargs;
