@@ -3,8 +3,8 @@ Todo:
 - core:close() ecode not implemented
 
 - sockext:
-  x use *a
-  - use setfd trick to do non-blocking reads from stdin
+  - implement setfd trick to do non-blocking reads from stdin,
+  - use above trick for ex-chat
 
 - release
   - extract documentation

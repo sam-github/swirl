@@ -43,7 +43,7 @@ function methods:_notify_lower_cb(op, ...)
     print(c(self), "notify lower", op, status, text, chno)
     self._lower.status = {status=status, text=text, chno=chno}
   else
-    print(c(self), "notify lower", op)
+    --print(c(self), "notify lower", op)
     self._lower[op] = true
   end
   local cb = opcb[op]
@@ -54,7 +54,7 @@ function methods:_notify_lower_cb(op, ...)
 end
 
 function methods:_notify_upper_cb(chno, op)
-  print(c(self), "notify upper ch#", chno, op)
+  --print(c(self), "notify upper ch#", chno, op)
   table.insert(self._upper, {chno, op})
 end
 
