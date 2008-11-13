@@ -1,16 +1,21 @@
 Todo:
 
-- "async" server
-  - need loop.delay()
-    - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
-
-- auto-accumulation of msg payload
+- sockext:
+  - use *a
+  - use setfd trick to do non-blocking reads from stdin
 
 - release
   - extract documentation
   - push src
   - Makefile working on Linux
   - announce
+
+
+- "async" server
+  - need loop.delay()
+    - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
+
+- auto-accumulation of msg payload
 
 - tune performance
   - intra toolkit
