@@ -7,13 +7,18 @@ local table = table
 --[[-
 ** sockext
 
-Socket extensions.
+Extensions to "socket", the LuaSocket library.
+
 ]]
 module("sockext", package.seeall) -- TODO remove package.seeall
 
 --[[-
-Return an object that can be used with socket.select() to select on an
-arbitrary file descriptor.
+-- selectable = sockext.selectable(fd)
+
+Return an object that can be used with socket.select() to select on a
+arbitrary descriptor.
+
+fd is an integer descriptor.
 ]]
 function selectable(fd)
   fd = assert(tonumber(fd), "fd must be a number")
@@ -23,28 +28,24 @@ function selectable(fd)
   return s
 end
 
-
 --[[-
-- data, emsg, partial = client:receive(pattern[, prefix])
-- data, emsg, partial = client:receive("*f"[, size])
+-- data, emsg, partial = sockext.receive(client, pattern[, prefix])
 
 If pattern is not "*f", is identical to client:receive().
 
-Otherwise, return as much data as is available, up to size bytes.  If size is
-not specified, it defaults to 4096. This is useful for dealing with a TCP
-stream without knowing the protocol. I.e., transparent proxying of TCP data as
-it arrives.
+Otherwise, the "*f" pattern returns as much data as is available. This is most
+useful when the client's timeout is set to 0, for non-blocking behaviour.
 
-This pattern requires setting client's timeout to 0, for non-blocking behaviour.
+This is useful for dealing with a TCP stream without knowing the protocol.
+I.e., transparent proxying of TCP data as it arrives.
 ]]
 function receive(client, pattern, prefix)
   if pattern ~= "*f" then
     return client:receive(pattern, prefix)
   end
 
-  local size = assert(tonumber(prefix or 4096))
-  local data, emsg, partial = client:receive(size)
-  if  not data and partial ~= "" then
+  local data, emsg, partial = client:receive("*a", prefix)
+  if not data and partial ~= "" then
     return partial
   else
     return data, emsg
@@ -60,47 +61,14 @@ local looping = nil
 --[[-
 ** sockext.loop
 
-Runs a select loop on a set of descriptors (sockets or socket descriptors), allowing
-easy managment of send ready, receive ready, and timeout events.
+Implementation of a select loop on a set of descriptors (sockets or socket
+descriptors), allowing cooperative managment of send ready and receive ready
+event handlers.
 
 Events are associated with callbacks. If the callback is nil, then the
 registration is cancelled.
 ]]
 loop = {}
-
-function loop.stop()
-  looping = false
-end
-
-local function ins(t, o, fn)
-  assert(o, "o is nil")
-  assert(o:getfd(), tostring(o))
-
-  -- remove existing
-  for i,v in ipairs(t) do
-    if v == o then
-      table.remove(t, i)
-      t[o] = nil
-    end
-  end
-  if fn then
-    -- if fn, re-add to t
-    table.insert(t, o)
-    t[o] = fn
-  end
-end
-
-function loop.receive(o, fn)
-  ins(qrd, o, fn)
-end
-
-function loop.send(o, fn)
-  ins(qwr, o, fn)
-end
-
-function loop.timeout(wait, fn)
-  assert(nil, "not implemented")
-end
 
 -- Debug select loop:
 local q, array
@@ -115,6 +83,17 @@ if loop._debug then
   end
 end
 
+--[[-
+-- sockext.loop.start()
+
+Loops, selects on all the send and receive selectables, calling handlers.
+
+Asserts if no handlers are registered.
+
+If during looping, all event handlers are cleared, returns.
+
+If during looping, loop.stop() is called, returns.
+]]
 function loop.start()
   assert((#qrd + #qwr) > 0, "Nothing to loop for")
   looping = true
@@ -149,5 +128,62 @@ function loop.start()
     call(awr, qwr)
     call(ard, qrd)
   end
+end
+
+--[[-
+-- sockext.loop.stop()
+
+When called within an event handler, causes the event loop to stop.
+]]
+function loop.stop()
+  looping = false
+end
+
+local function ins(t, o, fn)
+  assert(o, "o is nil")
+  assert(o:getfd(), tostring(o))
+
+  -- remove existing
+  for i,v in ipairs(t) do
+    if v == o then
+      table.remove(t, i)
+      t[o] = nil
+    end
+  end
+  if fn then
+    -- if fn, re-add to t
+    table.insert(t, o)
+    t[o] = fn
+  end
+end
+
+--[[-
+-- sockext.loop.receive(selectable[, handler])
+
+Set handler to be called when selectable is receive-ready.
+
+Only one receive handler can be handled per selectable.
+
+Unsets the handler if handler is nil.
+]]
+function loop.receive(o, fn)
+  ins(qrd, o, fn)
+end
+
+--[[-
+-- sockext.loop.send(selectable[, handler])
+
+Set handler to be called when selectable is send-ready.
+
+Only one send handler can be handled per selectable.
+
+Unsets the handler if handler is nil.
+]]
+function loop.send(o, fn)
+  ins(qwr, o, fn)
+end
+
+function loop.timeout(wait, fn)
+  assert(nil, "not implemented")
 end
 

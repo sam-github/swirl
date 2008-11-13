@@ -1,8 +1,11 @@
 -- Swirl - an implementation of BEEP for Lua
 -- Copyright (c) 2008 Sam Roberts
 
-local getmetatable = getmetatable
+--[[-
+** swirl.core - BEEP protocol kernel
+]]
 
+local getmetatable = getmetatable
 local swirl = require"swirl.core"
 
 module("swirl", package.seeall)
@@ -31,17 +34,148 @@ function methods:_cb(cb, ...)
   end
 end
 
+local opcb = {inready = "on_pushable", outready="on_pullable"}
+
+function methods:_notify_lower_cb(op, ...)
+  if op == "status" then
+    local status, text, chno = ...
+    -- FIXME deal with errors!
+    print(c(self), "notify lower", op, status, text, chno)
+    self._lower.status = {status=status, text=text, chno=chno}
+  else
+    print(c(self), "notify lower", op)
+    self._lower[op] = true
+  end
+  local cb = opcb[op]
+  --print("@", cb, lower.self, lower.self._arg.on_pullable)
+  if cb then
+    self:_cb(cb, self)
+  end
+end
+
+function methods:_notify_upper_cb(chno, op)
+  print(c(self), "notify upper ch#", chno, op)
+  table.insert(self._upper, {chno, op})
+end
+
+--[[-
+-- core = swirl.core{...}
+
+Arguments:
+  il=[I|L] whether this core is an initiator or listener, default is initiator
+    This affects the channel numbering, so each of the peers must be one or the
+    other, with TCP, the side that does the connect() is the initiator, and the
+    side that does the accept() is the listener.
+
+  profiles = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
+
+  error = {ecode, emsg, elang}: a listener may refuse to accept a connection, providing
+    an indication why
+      ecode: error code
+      emsg: textual message, optional
+      elang: language of textual message, optional
+
+  on_connected=function(core, profiles, features, localize): called on successful greeting from peer
+    profiles: an array of URIs identifying the server profiles supported by the peer
+    features: a string of tokens describing optional features of the channel
+      management profile, or nil (rarely supported)
+    localize: a string of tokens describing languages preferred in textual elements of close
+      and error messages, or nil (rarely supported)
+    TODO - greeting info should be saved for later querying?
+
+  on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
+
+  on_start=function(ch0): called with a request to start a channel, respond by
+    calling ch0:accept() or ch0:reject()
+
+  on_started=function(core, chno, uri, content?): called to confirm a positive response to
+    a channel start request, uri is the selected profile, and content is optional
+
+  on_start_err=function(core, chno, ecode, emsg, elang): called to confirm a negative response
+    to a channel start request
+
+  on_close = function(ch0):
+
+  on_closed = function(core, chno):
+
+  on_close_err =
+    TODO - not implemented
+
+  on_msg = function(frame):
+
+
+  on_pullable = function(core): data is available via :pull(). Note carefully that no
+    swirl calls may be made in this function. It is useful to adjust the select/poll
+    set, for example, or to unblock a thread reading from the core, and writing to
+    the peer. The core is always pullable after creation (it needs to send its
+    greeting).
+
+    A core is always pushable, so no notification callbacks exist for this
+    condition. Push data whenever it is received from the peer.
+
+]]
+function core(arg)
+  assert(not arg.profile)
+
+  local self = swirl._core(
+    nil, -- TODO - remove later
+    nil, -- TODO - remove later
+    arg.il,
+    nil, -- features
+    nil, -- localize
+    arg.profiles or {},
+    arg.error
+    )
+
+  self._arg=arg
+  self._lower = {} -- lower layer notifications, op=true when pending
+  self._upper = {} -- upper layer notifications, pairs of {chno, op}
+  self._msgno = {} -- map chno to the highest msgno that has been used
+
+  -- FIXME - if channel is closed, chno can be reused, so we need to clear these on close!
+
+  return self
+end
+
+--[[-
+-- data = core:pull()
+
+Pull data from core to send to peer.
+
+If data is nil, then there is not data available.
+
+Note that this need not be called directly when using luasocket, see the swirlsock
+module documentation. It is useful when running a BEEP core using TCP transport APIs
+other than luasocket, or if you don't want to use the sockext loop.
+]]
 function methods:pull()
   -- print(c(self), "pull")
   return self:_pull()
 end
 
+--[[-
+-- core:pulled(size)
+
+Size of data sucessully sent to peer.
+
+See notes for core:pull().
+]]
 function methods:pulled(sz)
   -- print(c(self), "pulled", sz)
   self._lower.outready = false
   return self:_pulled(sz)
 end
 
+--[[-
+-- core:push(data)
+
+Push data received from peer.
+
+The process of pushing data will change the core protocol state, causing the
+core's handlers to be called.
+
+See notes for core:pull().
+]]
 function methods:push(buffer)
   self._lower.inready = nil
 
@@ -159,12 +293,12 @@ function methods:push(buffer)
   return true
 end
 
---[[
-- chno = core:start(URI[, content=STR])
+--[[-
+-- chno = core:start(URI[, content=STR])
 
 Start a channel with profile URI, and optional content.
 
-- chno = core:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
+-- chno = core:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
 
 Start a channel with one of a set of profiles, an optional servername, and an
 optional channel number.
@@ -189,28 +323,26 @@ function methods:start(...)
   return self:_chan_start(arg.profiles, arg.servername, arg.channelno)
 end
 
---[[
+--[[-
+-- core:close(chno, ecode)
 
 chno defaults to 0
-
-TEST what happens when you close channel 0, but other channels are open? what
-should happen?
-
-TEST what happens when you close a channel that isn't open, or close twice a
-channel? Might need to track at this level and forbid.
 ]]
+-- TEST what happens when you close channel 0, but other channels are open?
+-- what should happen?
+-- TEST what happens when you close a channel that isn't open, or close twice a
+-- channel? Might need to track at this level and forbid.
 function methods:close(chno, ecode)
   return self:_chan_close(chno or 0, ecode)
 end
 
---[[
-- msgno = core:send_msg(chno, msg)
+--[[-
+-- msgno = core:send_msg(chno, msg)
 
 chno is the channel on which the message is being sent
 msg is the data to be sent
-
-TODO - it would be possible to allow partial send_msg, if msgno and more are provided
 ]]
+-- TODO - it would be possible to allow partial send_msg, if msgno and more are provided
 function methods:send_msg(chno, msg)
   chno = assert(tonumber(chno), "chno is not a number")
   assert(chno > 0, "chno is not greater than zero")
@@ -222,8 +354,8 @@ function methods:send_msg(chno, msg)
   return msgno
 end
 
---[[
-- msgno = core:send_rpy(chno, msgno, rpy, more)
+--[[-
+-- msgno = core:send_rpy(chno, msgno, rpy, more)
 
 chno is the channel on which the message is being sent
 msgno is the number of the msg being replied to
@@ -235,119 +367,27 @@ function methods:send_rpy(chno, msgno, rpy, more)
   return self:_frame_send(chno, "RPY", rpy, msgno, nil, more)
 end
 
+--[[-
+-- core:send_err(chno, msgno, err)
+
+chno is the channel on which the message is being sent
+msgno is the number of the msg being replied to
+err is the data to be sent
+]]
 function methods:send_err(chno, msgno, err)
   return self:_frame_send(chno, "ERR", err, msgno)
 end
 
+--[[-
+-- ecodes = {
+  [errno] = "error description", ...
+  errname = errno
+}
 
-local opcb = {inready = "on_pushable", outready="on_pullable"}
+Error codes from section 8 of RFC3080.
 
-function methods:_notify_lower_cb(op, ...)
-  if op == "status" then
-    local status, text, chno = ...
-    -- FIXME deal with errors!
-    print(c(self), "notify lower", op, status, text, chno)
-    self._lower.status = {status=status, text=text, chno=chno}
-  else
-    print(c(self), "notify lower", op)
-    self._lower[op] = true
-  end
-  local cb = opcb[op]
-  --print("@", cb, lower.self, lower.self._arg.on_pullable)
-  if cb then
-    self:_cb(cb, self)
-  end
-end
-
-function methods:_notify_upper_cb(chno, op)
-  print(c(self), "notify upper ch#", chno, op)
-  table.insert(self._upper, {chno, op})
-end
-
---[[
-- core = swirl.core{...}
-
-Arguments:
-  il=[I|L] whether this core is an initiator or listener, default is initiator
-    This affects the channel numbering, so each of the peers must be one or the
-    other, with TCP, the side that does the connect() is the initiator, and the
-    side that does the accept() is the listener.
-
-  profiles = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
-
-  error = {ecode, emsg, elang}: a listener may refuse to accept a connection, providing
-    an indication why
-      ecode: error code
-      emsg: textual message, optional
-      elang: language of textual message, optional
-
-  on_connected=function(core, profiles, features, localize): called on successful greeting from peer
-    profiles: an array of URIs identifying the server profiles supported by the peer
-    features: a string of tokens describing optional features of the channel
-      management profile, or nil (rarely supported)
-    localize: a string of tokens describing languages preferred in textual elements of close
-      and error messages, or nil (rarely supported)
-    TODO - greeting info should be saved for later querying?
-
-  on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
-
-  on_start=function(ch0): called with a request to start a channel, respond by
-    calling ch0:accept() or ch0:reject()
-
-  on_started=function(core, chno, uri, content?): called to confirm a positive response to
-    a channel start request, uri is the selected profile, and content is optional
-
-  on_start_err=function(core, chno, ecode, emsg, elang): called to confirm a negative response
-    to a channel start request
-
-  on_close = function(ch0):
-
-  on_closed = function(core, chno):
-
-  on_close_err =
-    TODO - not implemented
-
-  on_msg = function(frame):
-
-
-  on_pullable = function(core): data is available via :pull(). Note carefully that no
-    swirl calls may be made in this function. It is useful to adjust the select/poll
-    set, for example, or to unblock a thread reading from the core, and writing to
-    the peer. The core is always pullable after creation (it needs to send its
-    greeting).
-
-    A core is always pushable, so no notification callbacks exist for this
-    condition. Push data whenever it is received from the peer.
-
-]]
-function core(arg)
-  assert(not arg.profile)
-
-  local self = swirl._core(
-    nil, -- TODO - remove later
-    nil, -- TODO - remove later
-    arg.il,
-    nil, -- features
-    nil, -- localize
-    arg.profiles or {},
-    arg.error
-    )
-
-  self._arg=arg
-  self._lower = {} -- lower layer notifications, op=true when pending
-  self._upper = {} -- upper layer notifications, pairs of {chno, op}
-  self._msgno = {} -- map chno to the highest msgno that has been used
-
-  -- FIXME - if channel is closed, chno can be reused, so we need to clear these on close!
-
-  return self
-end
-
---[[
-Reply codes from section 8 of RFC3080.
-
-Some short hands are provided, but I'm not sure what short readable names I can
-provide for the others. Suggestions?
+Some short error names are provided, but I'm not sure what short readable names
+I can provide for the others. Suggestions?
 ]]
 ecodes = {
   [200] = "success",
@@ -388,11 +428,4 @@ ecodes = {
 #define BEEP_REPLY_INVALID_PARAM   553
 #define BEEP_REPLY_FAIL_TRANS      554
 ]]
-
---[[
-When receiving TCP fragments from a socket, it is recommended to try to read at
-least BUFSZ data at a time.
-]]
--- Largest read should be default window size, plus largest BEEP line * 2.
-BUFSZ = 4096 + 2 * #"ANS 2147483647 2147483647 . 4294967295 2147483647 2147483647\r\n"
 

@@ -38,7 +38,10 @@ LLUA=lua/$(SOSWIRL)
 
 CFLAGS+=-Ibeepcore-c/include
 
-swirl: $(LLUA)
+swirl: $(LLUA) lua/API.txt
+
+lua/API.txt: lua/swirl.lua lua/swirlsock.lua lua/sockext.lua
+	luadoc $^ > $@
 
 test: $(LLUA)
 	cd lua && lua gc-test

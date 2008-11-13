@@ -1,7 +1,9 @@
 Todo:
 
+- core:close() ecode not implemented
+
 - sockext:
-  - use *a
+  x use *a
   - use setfd trick to do non-blocking reads from stdin
 
 - release
@@ -9,7 +11,6 @@ Todo:
   - push src
   - Makefile working on Linux
   - announce
-
 
 - "async" server
   - need loop.delay()

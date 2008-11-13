@@ -4,6 +4,18 @@
 require"sockext"
 require"swirl"
 
+--[[-
+** swirlsock - extends the swirl module to allow using the socket module
+
+Calling swirl.connect() and swirl.listen() sets up the swirl.loop to run BEEP
+protocol kernels. They can be called multiple times, if you want to initiate
+multiple connections, or listen on multiple ports.
+
+Once set up, start them running by calling swirl.loop.start().
+
+Note that swirl.loop is a shorthand for sockext.loop, see the sockext module
+documentation for details.
+]]
 swirl.loop = sockext.loop
 
 local loop = sockext.loop
@@ -38,7 +50,7 @@ end
 
 local function receive(client)
   local core = map[client]
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  local data, emsg = sockext.receive(client, "*f")
   if data then
     core:_cb("trace_receive", core, data)
     local ok, emsg = core:push(data)
@@ -92,19 +104,22 @@ local function accept(server, arg)
 end
 
 --[[-
+-- server = swirl.listen(argt, port, host)
+
 Listen on host and port (host is optional, and defaults to any, "*").
 
 When accepting client connections, calls arg.on_accept(client) with the
 accepted client socket.
 
-If on_accept doesn't exist or returns true, arg is passed to swirl.core() to
-create a core for the client.
+If on_accept doesn't exist or returns true, argt is passed to swirl.core() to
+create a core for the client socket.
 
 The core will call on_connected() when the BEEP connection has been established,
 at which point channels can be started.
 
-Returns server socket on succes, or nil and an error message on failure.
+argt.il will be set to "L", listener.
 
+Returns server socket on succes, or nil and an error message on failure.
 ]]
 function swirl.listen(arg, port, host)
   if not arg.on_accept then
@@ -127,13 +142,18 @@ function swirl.listen(arg, port, host)
 end
 
 --[[-
-Connect to host and port (host is optional, and defaults to "localhost")
+-- client = swirl.connect(argt, port, host)
+
+Connect to host and port (host is optional, and defaults to "localhost"), and
+pass argt to swirl.core() to create a core for the client socket.
 
 The core will call on_connected() when the BEEP connection has been established
 (or on_connect_fail() if it the connection was rejected), at which point
 channels can be started.
 
-Returns client socket on succes, or nil and an error message on failure.
+argt.il will be set to "I", initiator.
+
+Returns client socket on success, or nil and an error message on failure.
 ]]
 function swirl.connect(arg, port, host)
   arg.il = "I"

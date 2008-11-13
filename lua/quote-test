@@ -1,0 +1,18 @@
+#!/usr/bin/env lua
+
+require"quote"
+
+
+do
+  local t = {
+    1, 2, 3,
+    [5] = "five",
+    io = io.stdout,
+    [function() end] = function()end,
+  }
+  t.t = t
+
+  print(quote.quote(t))
+end
+
+

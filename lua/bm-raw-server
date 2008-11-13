@@ -30,7 +30,7 @@ raw.server = assert(socket.bind("*", port))
 raw.server:settimeout(0)
 
 function raw.receive(client)
-  local data, emsg = sockext.receive(client, "*f", swirl.BUFSZ)
+  local data, emsg = sockext.receive(client, "*f")
   if data then
     if verbose then
       print("--- I > L:"..#data)

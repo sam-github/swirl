@@ -1,6 +1,6 @@
-Some notes on API usage.
+Some notes on API usage patterns, and flow.
 
-See inline docs in swirl.lua and swirl.c for more detailed API docs.
+See API.txt for details.
 
 * Terminology
 
