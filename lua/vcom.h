@@ -296,3 +296,52 @@ void v_pushweaktable(lua_State* L, const char* mode)
 }
 
 
+/*
+ * Indexable userdata:
+ * 
+ * static const struct luaL_reg some_methods[] = {
+ *   { "__index",            v_fenv_index },
+ *   { "__newindex",         v_fenv_newindex },
+ *   { "__gc",               core_gc },
+ *   { "__tostring",         core_tostring },
+ *   ...
+ * };
+ */
+
+/*
+ * Allow a userdata to be indexed, but searching for keys first in it's
+ * environment (specific to this userdata) and next in its metatable (generic
+ * to this userdata's "type").
+ *
+ * Note: by default userdata always has the fenv of it's caller at time
+ * of creation, which isn't so useful, so you must create a new table and
+ * set it as the fenv for new user data if you are using this API.
+ */
+int v_fenv_index(lua_State* L)
+{
+  lua_getfenv(L, 1);
+  lua_pushvalue(L, 2);
+  lua_gettable(L, -2);
+
+  if(!lua_isnil(L, -1))
+    return 1; // found in fenv
+
+  if(!lua_getmetatable(L, 1))
+    return 0; // there is no metatable
+
+  lua_pushvalue(L, 2);
+  lua_gettable(L, -2);
+
+  return 1;
+}
+
+/* Allow a userdata to be newindexed, by assigning into it's environment.  */
+int v_fenv_newindex(lua_State* L)
+{
+  lua_getfenv(L, 1);
+  lua_pushvalue(L, 2);
+  lua_pushvalue(L, 3);
+  lua_settable(L, -3);
+  return 0;
+}
+

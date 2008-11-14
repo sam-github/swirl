@@ -143,7 +143,7 @@ static int core_chan0_messageno(lua_State* L)
 }
 
 /*-
-- ic, op = chan0:op()
+-- ic, op = chan0:op()
 
 operation is composed of:
   ic ("i" is indication, "c" is confirmation, "e" is error)
@@ -217,8 +217,8 @@ static int core_chan0_core(lua_State* L)
 }
 
 /*-
-- chan0:accept(uri[, content])
-- chan0:accept()
+-- chan0:accept(uri[, content])
+-- chan0:accept()
 
 In response to a start request (the on_start callback), start the channel with the specified
 profile.
@@ -251,7 +251,7 @@ static int core_chan0_accept(lua_State* L)
 }
 
 /*-
-- chan0:reject(code, message, lang)
+-- chan0:reject(code, message, lang)
 
 In response to a start request (the on_start callback), refuse to start the channel.
 
@@ -518,10 +518,9 @@ static void notify_upper_cb( struct session * s, long chno, int op)
   v_pcall(L, "swirl notify_lower", 3, 0);
 }
 
-/*
-- core = swirl.core(
-	1,2  nil, nil,
-	        -- TODO - remove later
+/*-
+-- core = swirl.core(
+	1,2  nil, nil, -- TODO - remove later
 	3    il=[I|L],
 	4    features=STR,
 	5    localize=STR,
@@ -820,6 +819,13 @@ static int core_chan_start(lua_State* L)
   return 1;
 }
 
+/*-
+-- core:_chan_close(chno[, ecode [, emsg[, elang]]])
+
+ecode defaults to 200
+emsg and elang default to none
+
+*/
 static int core_chan_close(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
@@ -835,7 +841,7 @@ static int core_chan_close(lua_State* L)
 }
 
 /*-
-- core:frame_send(chno, msgtype, msg, msgno, ansno, more)
+-- core:frame_send(chno, msgtype, msg, msgno, ansno, more)
 
 Low-level frame sending... not to be used directly!
 */
@@ -885,42 +891,6 @@ static int core_chan_status(lua_State* L)
   return 1;
 }
 
-/* Allow a userdata to be indexed, but searching for keys first in it's
- * environment (specific to this userdata) and next in its metatable (generic
- * to this userdata's "type").
- *
- * Note: by default userdata always has the fenv of it's caller at time
- * of creation, which isn't so useful, so you must create a new table and
- * set it as the fenv for new user data if you are using this API.
- */
-int v_fenv_index(lua_State* L)
-{
-  lua_getfenv(L, 1);
-  lua_pushvalue(L, 2);
-  lua_gettable(L, -2);
-
-  if(!lua_isnil(L, -1))
-    return 1; // found in fenv
-
-  if(!lua_getmetatable(L, 1))
-    return 0; // there is not metatable
-
-  lua_pushvalue(L, 2);
-  lua_gettable(L, -2);
-
-  return 1;
-}
-
-/* Allow a userdata to be newindexed, by assigning into it's environment.  */
-int v_fenv_newindex(lua_State* L)
-{
-  lua_getfenv(L, 1);
-  lua_pushvalue(L, 2);
-  lua_pushvalue(L, 3);
-  lua_settable(L, -3);
-  return 0;
-}
-
 static const struct luaL_reg core_methods[] = {
   { "__index",            v_fenv_index },
   { "__newindex",         v_fenv_newindex },
@@ -954,7 +924,7 @@ int luaopen_swirl_core(lua_State* L)
 
   luaL_register(L, "swirl", swirl_methods);
 
-  // We'll need a weak-valued table for callbacks to find user data by pointer.
+  // We'll need a weak-valued table for callbacks to find swirl cores by session pointer.
   v_pushweaktable(L, "v");
   lua_setfield(L, -2, "_cores");
 

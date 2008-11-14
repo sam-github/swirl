@@ -1,7 +1,5 @@
 Todo:
 
-- core:close() ecode not implemented
-
 - sockext:
   - implement setfd trick to do non-blocking reads from stdin,
   - use above trick for ex-chat

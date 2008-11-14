@@ -324,16 +324,23 @@ function methods:start(...)
 end
 
 --[[-
--- core:close(chno, ecode)
+-- core:close(chno[, ecode[, emsg[, elang] ] ])
 
 chno defaults to 0
+
+ecode is the reason for the close, it defaults to 200 (success or ok)
+
+emsg is a human-readable reason for the close, and defaults to none (but could
+be provided if the channel is being closed because of an error condition)
+
+elang is the language of the emsg, and defaults to none (rarely used or supported)
 ]]
 -- TEST what happens when you close channel 0, but other channels are open?
 -- what should happen?
 -- TEST what happens when you close a channel that isn't open, or close twice a
 -- channel? Might need to track at this level and forbid.
-function methods:close(chno, ecode)
-  return self:_chan_close(chno or 0, ecode)
+function methods:close(chno, ecode, emsg, elang)
+  return self:_chan_close(chno or 0, ecode, emsg, elang)
 end
 
 --[[-
