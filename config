@@ -1,13 +1,14 @@
 # Debug and warning:
 LDFLAGS+=-g
 CFLAGS+=-g
-CFLAGS+=-O2
+#CFLAGS+=-O2
 CFLAGS+=-Wall
 CFLAGS+=-Werror
 
 # Lua setup:
 
 #LUACFLAGS+=-I/usr/local/include
+LUACFLAGS+=-I/usr/include/lua5.1
 
 
 # Install:
@@ -23,18 +24,15 @@ SOSWIRL=swirl.$(SOEXT)
 
 # Building on OS X:
 
-LUACFLAGS+=-fno-common
-LUALDFLAGS+=-bundle -undefined dynamic_lookup
-LUALDFLAGS+=-bind_at_load
-
-LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
+#LUACFLAGS+=-fno-common
+#LUALDFLAGS+=-bundle -undefined dynamic_lookup
+#LUALDFLAGS+=-bind_at_load
+#LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
 
 # Building on Linux:
-#CC=gcc
-#DEF=-DLUASOCKET_DEBUG 
-#CFLAGS= $(LUAINC) $(DEF) -pedantic -Wall -O2 -fpic
-#LDFLAGS=-O -shared -fpic
-#LD=gcc 
+CFLAGS+=-fpic
+LDFLAGS=-O -shared -fpic
+LD=gcc 
 
 # Stow:
 stow: build
