@@ -41,7 +41,7 @@ function raw.receive(client)
       loop.receive(client)
     end
   elseif emsg == "timeout" then
-    -- ignore
+    print("timedout on read-ready socket?")
   else
     print("receive on", client, "failed", emsg)
     loop.receive(client)

@@ -1,8 +1,5 @@
 Todo:
 
-- git:
-  - why aren't ignores part of a fetched repo?
-
 - sockext:
   - implement setfd trick to do non-blocking reads from stdin,
   - use above trick for ex-chat
@@ -18,6 +15,8 @@ Todo:
     - heap http://lua-users.org/lists/lua-l/2007-07/msg00482.html
 
 - auto-accumulation of msg payload
+
+- rename "raw" to tcp, and use argp
 
 - tune performance
   - intra toolkit
