@@ -1,0 +1,445 @@
+
+
+
+
+** swirl.core - BEEP protocol kernel
+
+
+-- core = swirl.core{...}
+
+Arguments:
+  il=[I|L] whether this core is an initiator or listener, default is initiator
+    This affects the channel numbering, so each of the peers must be one or the
+    other, with TCP, the side that does the connect() is the initiator, and the
+    side that does the accept() is the listener.
+
+  profiles = [{uri, ...}] a list of URIs for the server profiles supported locally, optional
+
+  error = {ecode, emsg, elang}: a listener may refuse to accept a connection, providing
+    an indication why
+      ecode: error code
+      emsg: textual message, optional
+      elang: language of textual message, optional
+
+  on_connected=function(core, profiles, features, localize): called on successful greeting from peer
+    profiles: an array of URIs identifying the server profiles supported by the peer
+    features: a string of tokens describing optional features of the channel
+      management profile, or nil (rarely supported)
+    localize: a string of tokens describing languages preferred in textual elements of close
+      and error messages, or nil (rarely supported)
+    TODO - greeting info should be saved for later querying?
+
+  on_connect_err=function(ecode, emsg, elang): listener refused to accept the connection
+
+  on_start=function(ch0): called with a request to start a channel, respond by
+    calling ch0:accept() or ch0:reject()
+
+  on_started=function(core, chno, uri, content?): called to confirm a positive response to
+    a channel start request, uri is the selected profile, and content is optional
+
+  on_start_err=function(core, chno, ecode, emsg, elang): called to confirm a negative response
+    to a channel start request
+
+  on_close = function(ch0):
+
+  on_closed = function(core, chno):
+
+  on_close_err =
+    TODO - not implemented
+
+  on_msg = function(frame):
+
+
+  on_pullable = function(core): data is available via :pull(). Note carefully that no
+    swirl calls may be made in this function. It is useful to adjust the select/poll
+    set, for example, or to unblock a thread reading from the core, and writing to
+    the peer. The core is always pullable after creation (it needs to send its
+    greeting).
+
+    A core is always pushable, so no notification callbacks exist for this
+    condition. Push data whenever it is received from the peer.
+
+
+
+-- data = core:pull()
+
+Pull data from core to send to peer.
+
+If data is nil, then there is not data available.
+
+Note that this need not be called directly when using luasocket, see the swirlsock
+module documentation. It is useful when running a BEEP core using TCP transport APIs
+other than luasocket, or if you don't want to use the sockext loop.
+
+
+-- core:pulled(size)
+
+Size of data sucessully sent to peer.
+
+See notes for core:pull().
+
+
+-- core:push(data)
+
+Push data received from peer.
+
+The process of pushing data will change the core protocol state, causing the
+core's handlers to be called.
+
+See notes for core:pull().
+
+
+-- chno = core:start(URI[, content=STR])
+
+Start a channel with profile URI, and optional content.
+
+
+
+-- chno = core:start{profiles={uri=URI, content=STR}, [servername=STR], [chno=NUM]}
+
+Start a channel with one of a set of profiles, an optional servername, and an
+optional channel number.
+
+TODO just make the arguments positional...
+
+BEEP calls this start and close. Too bad, I think it should be open and close, or
+start and stop!
+
+
+-- core:close(chno[, ecode[, emsg[, elang] ] ])
+
+chno defaults to 0
+
+ecode is the reason for the close, it defaults to 200 (success or ok)
+
+emsg is a human-readable reason for the close, and defaults to none (but could
+be provided if the channel is being closed because of an error condition)
+
+elang is the language of the emsg, and defaults to none (rarely used or supported)
+
+
+-- msgno = core:send_msg(chno, msg)
+
+chno is the channel on which the message is being sent
+msg is the data to be sent
+
+
+-- msgno = core:send_rpy(chno, msgno, rpy, more)
+
+chno is the channel on which the message is being sent
+msgno is the number of the msg being replied to
+rpy is the data to be sent
+more is whether there is more data to be sent in this reply, it defaults
+  to false
+
+
+-- core:send_err(chno, msgno, err)
+
+chno is the channel on which the message is being sent
+msgno is the number of the msg being replied to
+err is the data to be sent
+
+
+-- ecodes = {
+  [errno] = "error description", ...
+  errname = errno
+}
+
+Error codes from section 8 of RFC3080.
+
+Some short error names are provided, but I'm not sure what short readable names
+I can provide for the others. Suggestions?
+
+
+
+
+** chan0 - a channel zero message
+
+Channel zero is used to start/close channels. Because the profile running
+on channel zero is defined by BEEP, it is possible to decode and represent
+its messages.
+
+Messages on channels other than zero have a meaning and format defined by
+the application, and named and negotiated as a profile. See the frame object
+for information about them.
+
+
+-- chan0:destroy()
+
+Free resources associated with this message.
+
+Eventually, the message will get garbage collected (if it is no longer referenced),
+but it uses resources of core. Destroying it explicitly allows those resources to
+be reused.
+
+
+-- str = tostring(chan0)
+
+Return a string representation of the object.
+
+
+-- chno = chan0:channelno()
+
+Channel number this message relates to. The message itself is on channel zero,
+of course, its a channel zero object!
+
+
+-- msgno = chan0:messageno()
+
+Message number of this message.
+
+
+-- table = chan0:profiles()
+
+Profiles requested for this channel start, in order of preference.
+
+The profile table is an array of { uri=str[, content=str] } tables.
+
+
+-- ecode, emsg, elang = chan0:error()
+
+Error code, optional error message, and even more optional language for the message.
+
+
+-- str = chan0:features()
+
+Feature string for this session.
+
+Rarely used.
+
+
+-- str = chan0:localize()
+
+The language that should be used for text messages associated with this session, or nil.
+
+Rarely used.
+
+
+-- str = chan0:servername()
+
+The servername to be associated with this connection, or nil.
+
+Rarely used.
+
+
+-- core = chan0:core()
+
+The core this object belongs to.
+
+
+-- chan0:accept(uri[, content])
+
+In response to a start request (the on_start callback), start the channel with the
+profile identified by the specified uri, and optional content.
+
+
+
+-- chan0:accept()
+
+In response to a close request (the on_close callback), close the channel.
+
+
+-- chan0:reject(code, message, lang)
+
+In response to a start request (the on_start callback), refuse to start the channel.
+
+In response to a close request (the on_close callback), refuse to close the channel.
+
+
+
+
+** frame - a data frame
+
+Data is transmitted in frames. Because of flow control, data sent as a single
+message may arrive as multiple frames. The application is responsible for
+dealing with this. This is a feature! Collecting multiple frames into an
+arbitrarily large in memory message would be bad!
+
+
+-- frame:destroy()
+
+Free resources associated with this message.
+
+Freeing the frame implies that the data has been dealt with, and opens up more room
+in the receive window so the peer can send more frames.
+
+Eventually, the frame will get garbage collected (if it is no longer
+referenced), but destroying it explicitly allows control over when the window
+will be opened.
+
+
+-- str = tostring(frame)
+
+Return a string representation of the object.
+
+
+-- type = frame:type()
+
+Frames are of type:
+  "msg" - request message, all other types are responses to this kind of message
+  "rpy" - a positive reply to a msg, positive success is defined by the profile
+  "err" - a negative reply to a msg, negative failure is defined by the profile
+  "ans" - one of a multi-part reply to a msg
+  "nul" - end of a multi-part reply to a msg
+
+
+-- chno = frame:channelno()
+
+Channel number of this frame.
+
+
+-- msgno = frame:messageno()
+
+Message number of this frame.
+
+
+-- ansno = frame:answerno()
+
+For an answer frame, this is the answer number it is associated with.
+
+
+-- bool = core:more()
+
+There are more data frames to follow in this message.
+
+
+-- str = frame:payload()
+
+The payload data of this frame.
+
+The first frame in a message is implied to be prefixed with MIME headers,
+possibly empty, but this is not universally implemented by BEEP implementation.
+
+With swirl, whether or not you choose to start messages with a "\r\n" to
+indicate that you have no specific MIME headers, or not, or with MIME headers,
+is up to you.
+
+
+-- core = frame:core()
+
+The core this object belongs to.
+
+
+-- status, text, chno = core:status()
+
+
+-- status = core:chan_status(chno)
+
+
+
+
+** swirlsock - extends the swirl module to allow using the socket module
+
+Calling swirl.connect() and swirl.listen() sets up the swirl.loop to run BEEP
+protocol kernels. They can be called multiple times, if you want to initiate
+multiple connections, or listen on multiple ports.
+
+Once set up, start them running by calling swirl.loop.start().
+
+Note that swirl.loop is a shorthand for sockext.loop, see the sockext module
+documentation for details.
+
+
+-- server = swirl.listen(argt, port, host)
+
+Listen on host and port (host is optional, and defaults to any, "*").
+
+When accepting client connections, calls arg.on_accept(client) with the
+accepted client socket.
+
+If on_accept doesn't exist or returns true, argt is passed to swirl.core() to
+create a core for the client socket.
+
+The core will call on_connected() when the BEEP connection has been established,
+at which point channels can be started.
+
+argt.il will be set to "L", listener.
+
+Returns server socket on succes, or nil and an error message on failure.
+
+
+-- client = swirl.connect(argt, port, host)
+
+Connect to host and port (host is optional, and defaults to "localhost"), and
+pass argt to swirl.core() to create a core for the client socket.
+
+The core will call on_connected() when the BEEP connection has been established
+(or on_connect_fail() if it the connection was rejected), at which point
+channels can be started.
+
+argt.il will be set to "I", initiator.
+
+Returns client socket on success, or nil and an error message on failure.
+
+
+
+
+** sockext
+
+Extensions to "socket", the LuaSocket library.
+
+
+
+-- selectable = sockext.selectable(fd)
+
+Return an object that can be used with socket.select() to select on a
+arbitrary descriptor.
+
+fd is an integer descriptor.
+
+
+-- data, emsg, partial = sockext.receive(client, pattern[, prefix])
+
+If pattern is not "*f", is identical to client:receive().
+
+Otherwise, the "*f" pattern returns as much data as is available. This is most
+useful when the client's timeout is set to 0, for non-blocking behaviour.
+
+This is useful for dealing with a TCP stream without knowing the protocol.
+I.e., transparent proxying of TCP data as it arrives.
+
+
+
+
+** sockext.loop
+
+Implementation of a select loop on a set of descriptors (sockets or socket
+descriptors), allowing cooperative managment of send ready and receive ready
+event handlers.
+
+Events are associated with callbacks. If the callback is nil, then the
+registration is cancelled.
+
+
+-- sockext.loop.start()
+
+Loops, selects on all the send and receive selectables, calling handlers.
+
+Asserts if no handlers are registered.
+
+If during looping, all event handlers are cleared, returns.
+
+If during looping, loop.stop() is called, returns.
+
+
+-- sockext.loop.stop()
+
+When called within an event handler, causes the event loop to stop.
+
+
+-- sockext.loop.receive(selectable[, handler])
+
+Set handler to be called when selectable is receive-ready.
+
+Only one receive handler can be handled per selectable.
+
+Unsets the handler if handler is nil.
+
+
+-- sockext.loop.send(selectable[, handler])
+
+Set handler to be called when selectable is send-ready.
+
+Only one send handler can be handled per selectable.
+
+Unsets the handler if handler is nil.

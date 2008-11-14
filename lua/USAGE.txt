@@ -14,6 +14,10 @@ channel
 Server - the peer that receives a message, or receives a request to start or
 close a channel
 
+Message - a unit of data exchanged between BEEP peers. The pattern of message
+exchange is defined by BEEP, the meaning of the messages (other than on channel
+zero) is not.
+
 
 * Flow Control
 

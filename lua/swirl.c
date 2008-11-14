@@ -1,6 +1,13 @@
 /*
 Swirl - an implementation of BEEP for Lua
 Copyright (c) 2008 Sam Roberts
+
+Note, you are free to use any APIs that you wish, but ones for which the documentation
+comment doesn't start with a
+  / * -
+are not intended to be used other than to implement the core.
+
+That said, do as you will, its free software.
 */
 
 /** global definitions **/
@@ -30,6 +37,18 @@ static void core_check_diagnostic(lua_State* L, int idx, struct diagnostic* diag
   diagnostic->message = (char*) luaL_optstring(L, idx+1, NULL);
   diagnostic->lang = (char*) luaL_optstring(L, idx+2, NULL);
 }
+
+/*-
+** chan0 - a channel zero message
+
+Channel zero is used to start/close channels. Because the profile running
+on channel zero is defined by BEEP, it is possible to decode and represent
+its messages.
+
+Messages on channels other than zero have a meaning and format defined by
+the application, and named and negotiated as a profile. See the frame object
+for information about them.
+*/
 
 #define CHAN0_REGID "swirl.chan0"
 
@@ -87,11 +106,25 @@ static int core_chan0_gc(lua_State* L)
   return core_chan0_gc_(L, "gc");
 }
 
+/*-
+-- chan0:destroy()
+
+Free resources associated with this message.
+
+Eventually, the message will get garbage collected (if it is no longer referenced),
+but it uses resources of core. Destroying it explicitly allows those resources to
+be reused.
+*/
 static int core_chan0_destroy(lua_State* L)
 {
   return core_chan0_gc_(L, "destroy");
 }
 
+/*-
+-- str = tostring(chan0)
+
+Return a string representation of the object.
+*/
 static int core_chan0_tostring(lua_State* L)
 {
   struct chan0_msg** ud = luaL_checkudata(L, 1, CHAN0_REGID);
@@ -128,6 +161,12 @@ static int core_chan0_tostring(lua_State* L)
   return 1;
 }
 
+/*-
+-- chno = chan0:channelno()
+
+Channel number this message relates to. The message itself is on channel zero,
+of course, its a channel zero object!
+*/
 static int core_chan0_channelno(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -135,6 +174,11 @@ static int core_chan0_channelno(lua_State* L)
   return 1;
 }
 
+/*-
+-- msgno = chan0:messageno()
+
+Message number of this message.
+*/
 static int core_chan0_messageno(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -142,8 +186,8 @@ static int core_chan0_messageno(lua_State* L)
   return 1;
 }
 
-/*-
--- ic, op = chan0:op()
+/*
+- ic, op = chan0:op()
 
 operation is composed of:
   ic ("i" is indication, "c" is confirmation, "e" is error)
@@ -157,6 +201,13 @@ static int core_chan0_op(lua_State* L)
   return 2;
 }
 
+/*-
+-- table = chan0:profiles()
+
+Profiles requested for this channel start, in order of preference.
+
+The profile table is an array of { uri=str[, content=str] } tables.
+*/
 static int core_chan0_profiles(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -174,6 +225,11 @@ static int core_chan0_profiles(lua_State* L)
   return 1;
 }
 
+/*-
+-- ecode, emsg, elang = chan0:error()
+
+Error code, optional error message, and even more optional language for the message.
+*/
 static int core_chan0_error(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -187,6 +243,13 @@ static int core_chan0_error(lua_State* L)
   return 3;
 }
 
+/*-
+-- str = chan0:features()
+
+Feature string for this session.
+
+Rarely used.
+*/
 static int core_chan0_features(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -194,6 +257,13 @@ static int core_chan0_features(lua_State* L)
   return 1;
 }
 
+/*-
+-- str = chan0:localize()
+
+The language that should be used for text messages associated with this session, or nil.
+
+Rarely used.
+*/
 static int core_chan0_localize(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -201,6 +271,13 @@ static int core_chan0_localize(lua_State* L)
   return 1;
 }
 
+/*-
+-- str = chan0:servername()
+
+The servername to be associated with this connection, or nil.
+
+Rarely used.
+*/
 static int core_chan0_servername(lua_State* L)
 {
   struct chan0_msg* f = core_chan0_get(L, 1);
@@ -208,6 +285,11 @@ static int core_chan0_servername(lua_State* L)
   return 1;
 }
 
+/*-
+-- core = chan0:core()
+
+The core this object belongs to.
+*/
 static int core_chan0_core(lua_State* L)
 {
   core_chan0_get(L, 1); // don't need value, but want type checking
@@ -218,10 +300,11 @@ static int core_chan0_core(lua_State* L)
 
 /*-
 -- chan0:accept(uri[, content])
--- chan0:accept()
 
-In response to a start request (the on_start callback), start the channel with the specified
-profile.
+In response to a start request (the on_start callback), start the channel with the
+profile identified by the specified uri, and optional content.
+
+-- chan0:accept()
 
 In response to a close request (the on_close callback), close the channel.
 */
@@ -255,7 +338,7 @@ static int core_chan0_accept(lua_State* L)
 
 In response to a start request (the on_start callback), refuse to start the channel.
 
-In response to a close request (the on_close callback), refuse to close.
+In response to a close request (the on_close callback), refuse to close the channel.
 */
 static int core_chan0_reject(lua_State* L)
 {
@@ -288,6 +371,16 @@ static const struct luaL_reg core_chan0_methods[] = {
   { "reject",             core_chan0_reject },
   { NULL, NULL }
 };
+
+
+/*-
+** frame - a data frame
+
+Data is transmitted in frames. Because of flow control, data sent as a single
+message may arrive as multiple frames. The application is responsible for
+dealing with this. This is a feature! Collecting multiple frames into an
+arbitrarily large in memory message would be bad!
+*/
 
 #define FRAME_REGID "swirl.frame"
 
@@ -340,11 +433,28 @@ static int core_frame_gc(lua_State* L)
   return core_frame_gc_(L, "gc");
 }
 
+/*-
+-- frame:destroy()
+
+Free resources associated with this message.
+
+Freeing the frame implies that the data has been dealt with, and opens up more room
+in the receive window so the peer can send more frames.
+
+Eventually, the frame will get garbage collected (if it is no longer
+referenced), but destroying it explicitly allows control over when the window
+will be opened.
+*/
 static int core_frame_destroy(lua_State* L)
 {
   return core_frame_gc_(L, "destroy");
 }
 
+/*-
+-- str = tostring(frame)
+
+Return a string representation of the object.
+*/
 static int core_frame_tostring(lua_State* L)
 {
   struct frame** ud = luaL_checkudata(L, 1, FRAME_REGID);
@@ -363,6 +473,16 @@ static int core_frame_tostring(lua_State* L)
   return 1;
 }
 
+/*-
+-- type = frame:type()
+
+Frames are of type:
+  "msg" - request message, all other types are responses to this kind of message
+  "rpy" - a positive reply to a msg, positive success is defined by the profile
+  "err" - a negative reply to a msg, negative failure is defined by the profile
+  "ans" - one of a multi-part reply to a msg
+  "nul" - end of a multi-part reply to a msg
+*/
 static int core_frame_type(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
@@ -379,6 +499,11 @@ static int core_frame_type(lua_State* L)
   return 1;
 }
 
+/*-
+-- chno = frame:channelno()
+
+Channel number of this frame.
+*/
 static int core_frame_channelno(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
@@ -386,6 +511,11 @@ static int core_frame_channelno(lua_State* L)
   return 1;
 }
 
+/*-
+-- msgno = frame:messageno()
+
+Message number of this frame.
+*/
 static int core_frame_messageno(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
@@ -393,13 +523,26 @@ static int core_frame_messageno(lua_State* L)
   return 1;
 }
 
+/*-
+-- ansno = frame:answerno()
+
+For an answer frame, this is the answer number it is associated with.
+*/
 static int core_frame_answerno(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
-  lua_pushinteger(L, f->answer_number);
+  if(f->answer_number == -1)
+    lua_pushnil(L);
+  else
+    lua_pushinteger(L, f->answer_number);
   return 1;
 }
 
+/*-
+-- bool = core:more()
+
+There are more data frames to follow in this message.
+*/
 static int core_frame_more(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
@@ -407,6 +550,18 @@ static int core_frame_more(lua_State* L)
   return 1;
 }
 
+/*-
+-- str = frame:payload()
+
+The payload data of this frame.
+
+The first frame in a message is implied to be prefixed with MIME headers,
+possibly empty, but this is not universally implemented by BEEP implementation.
+
+With swirl, whether or not you choose to start messages with a "\r\n" to
+indicate that you have no specific MIME headers, or not, or with MIME headers,
+is up to you.
+*/
 static int core_frame_payload(lua_State* L)
 {
   struct frame* f = core_frame_get(L, 1);
@@ -414,6 +569,11 @@ static int core_frame_payload(lua_State* L)
   return 1;
 }
 
+/*-
+-- core = frame:core()
+
+The core this object belongs to.
+*/
 static int core_frame_core(lua_State* L)
 {
   core_frame_get(L, 1); // don't need value, but want type checking
@@ -518,7 +678,7 @@ static void notify_upper_cb( struct session * s, long chno, int op)
   v_pcall(L, "swirl notify_lower", 3, 0);
 }
 
-/*-
+/*
 -- core = swirl.core(
 	1,2  nil, nil, -- TODO - remove later
 	3    il=[I|L],
@@ -819,7 +979,7 @@ static int core_chan_start(lua_State* L)
   return 1;
 }
 
-/*-
+/*
 -- core:_chan_close(chno[, ecode [, emsg[, elang]]])
 
 ecode defaults to 200
@@ -840,10 +1000,10 @@ static int core_chan_close(lua_State* L)
   return 0;
 }
 
-/*-
--- core:frame_send(chno, msgtype, msg, msgno, ansno, more)
+/*
+- core:frame_send(chno, msgtype, msg, msgno, ansno, more)
 
-Low-level frame sending... not to be used directly!
+Low-level frame send API.
 */
 static int core_frame_send(lua_State* L)
 {
@@ -872,6 +1032,9 @@ static int core_frame_send(lua_State* L)
   return 0;
 }
 
+/*-
+-- status, text, chno = core:status()
+*/
 static int core_status(lua_State* L)
 {
   Core c = luaL_checkudata(L, 1, CORE_REGID);
@@ -879,6 +1042,9 @@ static int core_status(lua_State* L)
   return 3;
 }
 
+/*-
+-- status = core:chan_status(chno)
+*/
 static int core_chan_status(lua_State* L)
 {
   static const char* opstr[] = { "closed", "hopen", "hclosed", "busy", "answered", "quiescent" };

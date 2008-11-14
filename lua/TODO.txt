@@ -24,4 +24,4 @@ Todo:
   - make it fast, see:
       http://sourceforge.net/projects/simple3195/
       RFC 813
-
+  - testing flow control by not destroying frames
