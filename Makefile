@@ -41,7 +41,7 @@ CFLAGS+=-Ibeepcore-c/include
 swirl: $(LLUA) lua/API.txt
 
 lua/API.txt: lua/swirl.lua lua/swirl.c lua/swirlsock.lua lua/sockext.lua
-	-luadoc $^ > $@_ && mv $@_ $@
+	-ldoc $^ > $@_ && mv $@_ $@
 
 test: $(LLUA)
 	cd lua && lua gc-test
