@@ -2,6 +2,7 @@
 
 NULL = "http://example.com/beep/null"
 
+require"quote"
 require"argp"
 require"swirlsock"
 
@@ -19,6 +20,8 @@ argp.expand(arg)
 
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 arg.time = assert(tonumber(arg.time))
+
+print("client options: "..quote.quote(arg))
 
 verbose = arg.verbose
 

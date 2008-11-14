@@ -73,16 +73,6 @@ loop = {}
 -- Debug select loop:
 local q, array
 
-if loop._debug then
-  require"quote"
-
-  q = quote.quote
-
-  array = function(t)
-    return {unpack(t)}
-  end
-end
-
 --[[-
 -- sockext.loop.start()
 
@@ -95,6 +85,16 @@ If during looping, all event handlers are cleared, returns.
 If during looping, loop.stop() is called, returns.
 ]]
 function loop.start()
+  if loop._debug then
+    require"quote"
+
+    q = quote.quote
+
+    array = function(t)
+      return {unpack(t)}
+    end
+  end
+
   assert((#qrd + #qwr) > 0, "Nothing to loop for")
   looping = true
   while looping do
@@ -111,12 +111,12 @@ function loop.start()
     local ard, awr, err = socket.select(qrd, qwr)
 
     if loop._debug then
-      print("select a", "r="..q(array(qrd)), "w="..q(array(qwr)))
+      print("select a", "r="..q(array(ard)), "w="..q(array(awr)), err)
     end
 
     local function call(events, actions)
       for i,sock in ipairs(events) do
-	-- print(actions._event, q(sock), q(actions[sock]))
+	print(actions._event, q(sock), q(actions[sock]))
 	local action = actions[sock]
 	-- earlier actions may have deregistered for events
 	if action then

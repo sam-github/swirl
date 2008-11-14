@@ -24,8 +24,11 @@ host = arg[2] or "localhost"
 local xfersz = 0
 
 function receive(client)
-  if verbose then print(".. receive") end
-  local data, emsg = client:receive"*l"
+  if verbose then print(".. receive", "here") end
+
+  data, emsg = client:receive"*l"
+
+  if verbose then print(q(data), q(emsg)) end
 
   assert(data, emsg)
 
@@ -45,14 +48,30 @@ function receive(client)
 end
 
 function send(client)
-  assert(client:send(BUF))
+  if verbose then print(".. send") end
+
+  local sz = assert(client:send(BUF))
+
+  if verbose then
+    print(".. sendsz = "..sz)
+  end
+end
+
+if verbose then
+  print("connecting...")
 end
 
 client = assert(socket.connect(host, port))
 
+if verbose then
+  print("starting...", receive, send)
+end
+
 t0 = os.time()
 
 loop = sockext.loop
+
+loop._debug = true
 
 loop.receive(client, receive)
 loop.send(client, send)
