@@ -478,7 +478,7 @@ c->cur_out_seq = 4000;
 }
 
   /* Destroys a channel, reaping everything, after unlinking it from the session */
-static void channel_destroy(struct session * sess, struct channel * chan) {
+static void channel_destroy(struct session * sess, struct channel * chan) { // should take a **chan, and NULL it
   struct frame * f;
   struct uamn * a;
 
@@ -2165,6 +2165,8 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
         blu_chan0_destroy(cz);
         return NULL;
       }
+      /* start confirmations need to know the channel which was started */
+      cz->channel_number = c->channel_number;
       if (cz->error == NULL) {
         /* Finished starting - go for it */
         c->status = ' '; c->c0_message_number = -1;
@@ -2172,8 +2174,6 @@ struct chan0_msg * blu_chan0_in(struct session * s) {
         /* start failed */
         channel_destroy(s, c);
       }
-      /* start confirmations need to know the channel which was started */
-      cz->channel_number = c->channel_number;
     }
   } else if (cz->op_sc == 'c') {
     if (cz->op_ic == 'i') {
