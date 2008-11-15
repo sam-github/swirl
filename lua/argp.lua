@@ -18,10 +18,12 @@ Find all arguments looking like
   key=value
 and assign value to [key] in the argument table, argt.
 ]]
-function expand(t, usage)
-  for i,a in ipairs(t) do
+function expand(t)
+  for i=1,#t do
+    local a = t[i]
     local s,e,k,v = find(a, "^([^=]+)=?(.*)$")
     t[k] = v
+    t[i] = nil
   end
 end
 

@@ -1,42 +1,53 @@
 #!/usr/bin/env lua
+-- Benchmark raw throughput, similarly to to bm-client, but without BEEP.
 
+require"argp"
 require"quote"
 require"sockext"
 
--- Setup
-
 q = quote.quote
 
-USAGE = "usage: "..arg[0].." <port> [host]"
+-- Arguments
 
-SZ = 4000
-BUF = string.rep("x", SZ)
-TIME = 5 -- seconds
+USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT]"
 
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
+arg.host     = "localhost"
+arg.time     = 5
+arg.size     = 5000
+
+argp.expand(arg)
+
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+arg.time = assert(tonumber(arg.time))
+
+print("options: "..quote.quote(arg))
+
+verbose = arg.verbose
+
+if arg.verbose then
+  trace = print
+else
+  trace = function () end
 end
 
-port = assert(tonumber(arg[1]), "no port\n"..USAGE)
-host = arg[2] or "localhost"
+BUF = string.rep("x", arg.size)
+
+-- Benchmark raw TCP throughput
 
 local xfersz = 0
 
 function receive(client)
-  if verbose then print(".. receive", "here") end
+  trace(".. receive")
 
   data, emsg = client:receive"*l"
 
-  if verbose then print(q(data), q(emsg)) end
+  if verbose then trace(q(emsg), q(data)) end
 
   assert(data, emsg)
 
   xfersz = xfersz + assert(tonumber(data))
 
-  if verbose then
-    print(".. xfersz = "..xfersz)
-  end
+  trace("   xfersz = "..xfersz)
 
   t1 = os.time()
 
@@ -48,30 +59,26 @@ function receive(client)
 end
 
 function send(client)
-  if verbose then print(".. send") end
+  trace(".. send")
 
   local sz = assert(client:send(BUF))
 
-  if verbose then
-    print(".. sendsz = "..sz)
-  end
+  trace("   sendsz = "..sz)
 end
 
-if verbose then
-  print("connecting...")
-end
+trace("connecting...")
 
-client = assert(socket.connect(host, port))
+client = assert(socket.connect(arg.host, arg.port))
 
-if verbose then
-  print("starting...", receive, send)
-end
+trace("starting...")
 
 t0 = os.time()
 
 loop = sockext.loop
 
-loop._debug = true
+if verbose == "very" then
+  loop._debug = true
+end
 
 loop.receive(client, receive)
 loop.send(client, send)

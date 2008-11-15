@@ -13,6 +13,8 @@ argp.expand(arg)
 
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 
+print("options: "..quote.quote(arg))
+
 verbose = arg.verbose
 
 if verbose then

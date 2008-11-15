@@ -21,7 +21,7 @@ argp.expand(arg)
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 arg.time = assert(tonumber(arg.time))
 
-print("client options: "..quote.quote(arg))
+print("options: "..quote.quote(arg))
 
 verbose = arg.verbose
 
@@ -30,8 +30,6 @@ if arg.verbose then
 else
   trace = function () end
 end
-
-arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 
 BUF = string.rep("x", arg.size)
 

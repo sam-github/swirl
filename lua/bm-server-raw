@@ -1,32 +1,38 @@
 #!/usr/bin/env lua
 
+require"argp"
 require"quote"
-require"socket"
 require"sockext"
-require"swirl"
-
--- Setup
 
 loop = sockext.loop
 
 q = quote.quote
 
-USAGE = "usage: "..arg[0].." [-v] <port>"
+-- Setup
 
-if arg[1] == "-v" then
-  verbose = true
-  table.remove(arg, 1)
+USAGE = "usage: "..arg[0].." port=INT [verbose=yes|very]"
+
+argp.expand(arg)
+
+arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
+
+print("options: "..quote.quote(arg))
+
+verbose = arg.verbose
+
+if verbose then
+  trace = print
+else
+  trace = function () end
 end
 
-port = assert(tonumber(arg[1]), "no port\n"..USAGE)
-
-print("listen on "..port.." (raw)")
+print("options: "..quote.quote(arg))
 
 -- Raw server:
 
 raw = {}
 
-raw.server = assert(socket.bind("*", port))
+raw.server = assert(socket.bind("*", arg.port))
 raw.server:settimeout(0)
 
 function raw.receive(client)
