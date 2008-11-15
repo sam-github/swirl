@@ -24,15 +24,15 @@ SOSWIRL=swirl.$(SOEXT)
 
 # Building on OS X:
 
-#LUACFLAGS+=-fno-common
-#LUALDFLAGS+=-bundle -undefined dynamic_lookup
-#LUALDFLAGS+=-bind_at_load
-#LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
+LUACFLAGS+=-fno-common
+LUALDFLAGS+=-bundle -undefined dynamic_lookup
+LUALDFLAGS+=-bind_at_load
+LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
 
 # Building on Linux:
-CFLAGS+=-fpic
-LDFLAGS=-O -shared -fpic
-LD=gcc 
+#CFLAGS+=-fpic
+#LDFLAGS=-O -shared -fpic
+#LD=gcc 
 
 # Stow:
 stow: build
