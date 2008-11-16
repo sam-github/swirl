@@ -26,22 +26,23 @@ else
   trace = function () end
 end
 
-print("options: "..quote.quote(arg))
-
 -- Raw server:
 
 raw = {}
 
 raw.server = assert(socket.bind("*", arg.port))
-raw.server:settimeout(0)
+assert(raw.server:settimeout(0))
 
 function raw.receive(client)
-  local data, emsg = sockext.receive(client, "*f")
+  trace".. receive"
+
+  local data, emsg = sockext.read(client, 2 * 4096)
+
   if data then
     if verbose then
       print("--- I > L:"..#data)
     end
-    ok, emsg = client:send(#data.."\n")
+    local ok, emsg = client:send(#data.."\n")
     if not ok then
       print("send on", client, "failed", emsg)
       loop.receive(client)
@@ -58,8 +59,10 @@ function raw.accept(server)
   print(".. accept from", q(server))
   client = server:accept()
   if not client then
-    -- oops, client died before we accepted
+    print"oops, client gone before we accepted"
   else
+    assert(client:settimeout(0))
+    assert(client:setoption("tcp-nodelay", true))
     loop.receive(client, raw.receive)
   end
 end

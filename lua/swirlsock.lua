@@ -38,11 +38,14 @@ local function send(client)
     return
   end
 
-  local sz, emsg = client:send(data)
+  local sz, emsg = sockext.write(client, data)
 
   if sz then
     core:pulled(sz)
     core:_cb("trace_send", core, data, sz)
+  elseif emsg == "timeout" then
+    -- Select thought we could write data, but when we tried, the kernel didn't
+    -- accept any? Well, it might happen, lets ignore.
   else
     disconnected(client, core, emsg)
   end
@@ -50,7 +53,7 @@ end
 
 local function receive(client)
   local core = map[client]
-  local data, emsg = sockext.receive(client, "*f")
+  local data, emsg = sockext.read(client, 2*4096) -- this is a pretty arbitrary size! :-(
   if data then
     core:_cb("trace_receive", core, data)
     local ok, emsg = core:push(data)
@@ -134,7 +137,7 @@ function swirl.listen(arg, port, host)
     return nil, emsg
   end
 
-  server:settimeout(0)
+  assert(server:settimeout(0))
 
   loop.receive(server, function (server) accept(server, arg) end)
 

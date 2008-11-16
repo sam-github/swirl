@@ -29,28 +29,49 @@ function selectable(fd)
 end
 
 --[[-
--- data, emsg, partial = sockext.receive(client, pattern[, prefix])
+-- data, emsg = sockext.read(client, pattern[, prefix])
 
-If pattern is not "*f", is identical to client:receive().
+Identical to client:receive(), except that if partial data was read, it returns
+it instead of returning nil.
 
-Otherwise, the "*f" pattern returns as much data as is available. This is most
-useful when the client's timeout is set to 0, for non-blocking behaviour.
-
-This is useful for dealing with a TCP stream without knowing the protocol.
-I.e., transparent proxying of TCP data as it arrives.
+This is convenient for binary/non-line-delimited protocols.
 ]]
-function receive(client, pattern, prefix)
-  if pattern ~= "*f" then
-    return client:receive(pattern, prefix)
+function read(client, pattern, prefix)
+  local data, emsg, partial = client:receive(pattern, prefix)
+  if data then
+    return data
+  end
+  if partial and #partial > 0 then
+    return partial
+  end
+  return nil, emsg
+end
+
+--[[-
+-- last, emsg = sockext.write(client, data, i, j)
+
+Identical to client:send(), except that if partial data was written, it returns
+the index of the last byte of the partial write, instead of returning nil.
+
+In the common case that i is nil, this means that the return value is always
+the amount of data sent, even for partial sends.
+]]
+function write(client, data, i, j)
+  local last1, emsg, last2 = client:send(data, i, j)
+
+  if last1 then
+    return last1
   end
 
-  local data, emsg, partial = client:receive("*a", prefix)
-  if not data and partial ~= "" then
-    return partial
-  else
-    return data, emsg
+  -- the luasocket docs aren't clear about what last2 will be if no data was
+  -- written, I hope it will be either nil, or a number less than i
+  if emsg == "timeout" and last2 and last2 >= (i or 1) then
+    return last2
   end
+
+  return nil, emsg
 end
+
 
 local qrd = {_event = "receive"}
 

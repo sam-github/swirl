@@ -16,8 +16,6 @@ Todo:
 
 - auto-accumulation of msg payload
 
-- rename "raw" to tcp, and use argp
-
 - tune performance
   - intra toolkit
     - vortex

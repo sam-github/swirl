@@ -39,9 +39,7 @@ local xfersz = 0
 function receive(client)
   trace(".. receive")
 
-  data, emsg = client:receive"*l"
-
-  if verbose then trace(q(emsg), q(data)) end
+  local data, emsg = client:receive"*l"
 
   assert(data, emsg)
 
@@ -49,10 +47,10 @@ function receive(client)
 
   trace("   xfersz = "..xfersz)
 
-  t1 = os.time()
+  local t1 = os.time()
 
-  if t1 - t0 > TIME then
-    t = t1 - t0
+  if t1 - t0 > arg.time then
+    local t = t1 - t0
     print("tcp", "b", xfersz, "t", t, "rate", xfersz/1000/t, "kb/s")
     os.exit(0)
   end
@@ -60,15 +58,17 @@ end
 
 function send(client)
   trace(".. send")
-
-  local sz = assert(client:send(BUF))
-
-  trace("   sendsz = "..sz)
+  local sz, emsg = sockext.write(client, BUF)
+  if not sz and emsg ~= "timeout" then
+    assert(sz, emsg)
+  end
 end
 
 trace("connecting...")
 
 client = assert(socket.connect(arg.host, arg.port))
+assert(client:settimeout(0))
+assert(client:setoption("tcp-nodelay", true))
 
 trace("starting...")
 
