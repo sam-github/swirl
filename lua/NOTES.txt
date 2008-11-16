@@ -51,4 +51,77 @@ done t=6 msgs=3693 msgs/sec=615.500000 bytes/sec=307750.000000
 
 ensemble:~/p/chat/git-chat/swirl % lua bm-server.lua tcp 4321 localhost 5
 done t=6 msgs=7306 msgs/sec=1217.666667 bytes/sec=608833.333333
-]]
+
+
+
+---
+
+sam@brick:~/s/git-swirl/lua$ ./bm-client-raw port=8765 host=ensemble time=30
+options: {[-1]="lua", port=8765, time=30, [0]="./bm-client-raw", host="ensemble", size=5000}
+tcp     b       69117240        t       31      rate    2229.5883870968 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client-raw port=8765 host=ensemble time=30
+options: {[-1]="lua", port=8765, time=30, [0]="./bm-client-raw", host="ensemble", size=5000}
+tcp     b       68868072        t       31      rate    2221.5507096774 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client-raw port=8765 host=ensemble time=30 size=10000
+options: {[-1]="lua", port=8765, time=30, [0]="./bm-client-raw", host="ensemble", size="10000"}
+tcp     b       68414936        t       31      rate    2206.9334193548 kb/s
+
+
+
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=5
+options: {[-1]="lua", port=8765, time=5, host="ensemble", [0]="./bm-client", par=1, seq=2, size=5000}
+seq     2       par     1       b       4405000 t       6       rate    734.16666666667 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=5 seq=5
+options: {[-1]="lua", port=8765, time=5, host="ensemble", [0]="./bm-client", par=1, seq="5", size=5000}
+seq     5       par     1       b       4540000 t       6       rate    756.66666666667 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=5 seq=10
+options: {[-1]="lua", port=8765, time=5, host="ensemble", [0]="./bm-client", par=1, seq="10", size=5000}
+seq     10      par     1       b       4200000 t       6       rate    700     kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=5 seq=1
+options: {[-1]="lua", port=8765, time=5, host="ensemble", [0]="./bm-client", par=1, seq="1", size=5000}
+seq     1       par     1       b       2890000 t       6       rate    481.66666666667 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=5 seq=2
+options: {[-1]="lua", port=8765, time=5, host="ensemble", [0]="./bm-client", par=1, seq="2", size=5000}
+seq     2       par     1       b       3955000 t       6       rate    659.16666666667 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=10 seq=2
+options: {[-1]="lua", port=8765, time=10, host="ensemble", [0]="./bm-client", par=1, seq="2", size=5000}
+seq     2       par     1       b       7990000 t       11      rate    726.36363636364 kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=30 seq=2 size=10000
+options: {[-1]="lua", port=8765, time=30, host="ensemble", [0]="./bm-client", par=1, seq="2", size="10000"}
+seq     2       par     1       b       26170000        t       31      rate    844.1935483871  kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=30 seq=2 size=20000
+options: {[-1]="lua", port=8765, time=30, host="ensemble", [0]="./bm-client", par=1, seq="2", size="20000"}
+seq     2       par     1       b       26480000        t       31      rate    854.1935483871  kb/s
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=30 seq=2 size=40000
+options: {[-1]="lua", port=8765, time=30, host="ensemble", [0]="./bm-client", par=1, seq="2", size="40000"}
+seq     2       par     1       b       26600000        t       31      rate    858.06451612903 kb/s
+
+
+
+
+pcaps:
+
+
+sam@brick:~/s/git-swirl/lua$ ./bm-client port=8765 host=ensemble time=1 seq=2 size=5000
+options: {[-1]="lua", port=8765, time=1, host="ensemble", [0]="./bm-client", par=1, seq="2", size="5000"}
+seq     2       par     1       b       1520000 t       2       rate    760     kb/s
+
+ensemble:~/p/chat/git-chat/lua % sudo tcpdump -i en0 -w beep-time=1-seq=2-size=5000.pcap  "port 8765"
+Password:
+tcpdump: listening on en0, link-type EN10MB (Ethernet), capture size 96 bytes
+^C1907 packets captured
+1924 packets received by filter
+0 packets dropped by kernel
+
+
+
+sam@brick:~/s/git-swirl/lua$ ./bm-client-raw port=8765 host=ensemble time=1 seq=2 size=5000
+options: {[-1]="lua", port=8765, time=1, [0]="./bm-client-raw", host="ensemble", seq="2", size="5000"}
+tcp     b       4216456 t       2       rate    2108.228        kb/s
+
+ensemble:~/p/chat/git-chat/lua % sudo tcpdump -i en0 -w tcp-time=1-size=5000.pcap  "port 8765" 
+tcpdump: listening on en0, link-type EN10MB (Ethernet), capture size 96 bytes
+^C6565 packets captured
+10813 packets received by filter
+0 packets dropped by kernel
+
