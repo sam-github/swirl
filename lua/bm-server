@@ -3,6 +3,7 @@
 NULL = "http://example.com/beep/null"
 
 require"argp"
+require"quote"
 require"swirlsock"
 
 -- Arguments
