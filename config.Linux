@@ -1,0 +1,5 @@
+# Building on Linux:
+
+CFLAGS+=-fpic
+LDFLAGS=-O -shared -fpic
+LD=gcc

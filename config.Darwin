@@ -1,0 +1,6 @@
+# Building on OS X:
+
+LUACFLAGS+=-fno-common
+LUALDFLAGS+=-bundle -undefined dynamic_lookup
+LUALDFLAGS+=-bind_at_load
+LD=export MACOSX_DEPLOYMENT_TARGET="10.3"; gcc
