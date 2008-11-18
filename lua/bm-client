@@ -46,6 +46,10 @@ function null.on_connected(core)
   end
 end
 
+function null.on_disconnected(core, emsg)
+  print(".. on_disconnected", core, emsg)
+end
+
 function null.on_started(core, chno)
   trace(".. on_started")
   
@@ -84,6 +88,10 @@ function null.on_rpy(frame)
 end
 
 -- Start loop
+
+if verbose == "very" then
+  sockext.loop._debug = true
+end
 
 assert(swirl.connect(null, arg.port, arg.host))
 
