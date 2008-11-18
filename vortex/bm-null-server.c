@@ -27,7 +27,6 @@ bool start_channel (int channel_num,
     VortexConnection * connection, 
     axlPointer user_data)
 {
-  count = 0;
   return true;
 }
 
