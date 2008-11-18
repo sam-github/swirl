@@ -57,7 +57,7 @@ function null.on_started(core, chno)
 
   -- keep outgoing queue full
   for _=1,arg.seq do
-    assert(core:send_msg(chno, BUF))
+    msgno = assert(core:send_msg(chno, BUF))
   end
 end
 
@@ -74,11 +74,11 @@ function null.on_rpy(frame)
 
   if t1 - t0 > arg.time then
     t = t1 - t0
-    print("seq", arg.seq, "par", arg.par, "b", core.user, "t", t, "rate", core.user/1000/t, "kb/s")
+    print("seq", arg.seq, "par", arg.par, "b", core.user, "t", t, "rate", core.user/1000/t, "kB/s")
     os.exit(0)
   end
 
-  assert(frame:core():send_msg(frame:channelno(), BUF))
+  msgno = assert(frame:core():send_msg(frame:channelno(), BUF))
 
   frame:destroy()
 end
