@@ -1062,7 +1062,10 @@ static void bump_next_message(struct session * s) {
      just easier to make visually distinctive message numbers. */
   /* s->next_message = (s->next_message * 17) % 1000000000; */
   s->next_message = (s->next_message + 1) % 1000000000;
-  if (s->next_message < 10) s->next_message += 10;
+  /* if (s->next_message < 10) s->next_message += 10; */
+  /* Besides being lame, not using chan zero msg numbers starting from 1 surprises
+   * other (admittedly non-conformant) toolkits.
+   */
 }
 
   /* * * +=+=+=+ Now the real work +=+=+=+ * * */
@@ -1103,7 +1106,7 @@ struct session * bll_session_create(
     newsession->next_channel = 1;
   else
     newsession->next_channel = 2;
-  newsession->next_message = 100; /* What the heck */
+  newsession->next_message = 0;
   newsession->tuning = -1;
   newsession->malloc = malloc;
   newsession->free = free;
