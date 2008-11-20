@@ -10,6 +10,4 @@ x="$A $V $B $L"
 
 ctags --if0=yes --file-tags=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm --c-kinds=+p $x .
 
-
-# on master repo
-
+# on work branch
