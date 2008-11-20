@@ -1,22 +1,42 @@
-#include <vortex.h>
-
 #include <assert.h>
-//#include <stdlib.h>
-//#include <stdio.h>
+#include <stdlib.h>
+#include <vortex.h>
 
 #define NULL_PROFILE "http://example.com/beep/null"
 
 char* BUF = NULL;
-size_t BUFSZ = 5000;
+size_t SIZE = 5000;
 time_t TIME = 5;
+int SEQ = 2;
+int PAR = 1;
+
 time_t t0 = 0;
 time_t t = 0;
 size_t size = 0;
 
 void send_msg(VortexChannel* channel)
 {
-  int ok = vortex_channel_send_msg(channel, BUF, BUFSZ, NULL);
+  int ok = vortex_channel_send_msg(channel, BUF, SIZE, NULL);
   assert(ok);
+}
+
+void on_start(int chno, VortexChannel *chan, void* v)
+{
+  int i;
+
+  if (!chan) {
+    fprintf(stderr, "Unable to create a channel..\n");
+    exit(1);
+  }
+  vortex_channel_set_complete_flag(chan, 1);
+  vortex_channel_set_automatic_mime(chan, 2);
+
+  if(!t0)
+    t0 = time(NULL);
+
+  for(i = 0; i < SEQ; i++) {
+    send_msg(chan);
+  }
 }
 
 void on_frame(VortexChannel* channel, VortexConnection* conn, VortexFrame* frame, void* v)
@@ -33,7 +53,7 @@ void on_frame(VortexChannel* channel, VortexConnection* conn, VortexFrame* frame
   t = time(NULL) - t0;
 
   if(t >= TIME) {
-    printf("seq\t2\tpar\t1\tb\t%d\tt\t%ld\trate\t%g\tkB/s\n", size, t, size / 1000.0 / t);
+    printf("seq\t2\tpar\t1\tb\t%ld\tt\t%ld\trate\t%g\tkB/s\n", size, t, size / 1000.0 / t);
     exit(0);
   }
 
@@ -46,29 +66,45 @@ int main (int argc, char ** argv)
   const char* port = NULL;
   const char* profile = NULL_PROFILE;
   VortexConnection * connection = NULL;
-  VortexChannel * channel = NULL;
+  int opt;
+  int i;
 
   vortex_init ();
 
-  switch(argc)
+  while((opt = getopt(argc, argv, "p:h:T:Z:S:P:")) != -1)
   {
-    case 4:
-      TIME = atoi(argv[3]);
-    case 3:
-      host = argv[2];
-    case 2:
-      port = argv[1];
-      break;
-    default:
-      fprintf(stderr, "usage: %s port [host] [time]\n", argv[0]);
-      return 0;
+    switch(opt)
+    {
+      case 'p':
+	port = optarg;
+	break;
+      case 'h':
+	host = optarg;
+	break;
+      case 'T':
+	TIME = atoi(optarg);
+	break;
+      case 'Z':
+	SIZE = atoi(optarg);
+	break;
+      case 'S':
+	SEQ = atoi(optarg);
+	break;
+      case 'P':
+	PAR = atoi(optarg);
+	break;
+      default:
+	return 1;
+    }
   }
 
-  BUF = malloc(BUFSZ);
-  assert(BUF);
-  memset(BUF, 'x', BUFSZ);
+  printf("options: port=%s host=%s time=%d size=%d seq=%d par=%d",
+      port, host, (int)TIME, (int)SIZE, SEQ, PAR
+      );
 
-  printf ("connecting to %s:%s, profile=%s\n", host, port, profile);
+  BUF = malloc(SIZE);
+  assert(BUF);
+  memset(BUF, 'x', SIZE);
 
   connection = vortex_connection_new(host, port, NULL, NULL);
 
@@ -78,34 +114,18 @@ int main (int argc, char ** argv)
     return 1;
   }
 
-  printf(".. get channel\n");
-
-  channel = vortex_channel_new(connection, 0,
-      profile,
-      NULL, NULL, /* no close handling */
-      on_frame, NULL,
-      NULL, NULL /* no async channel creation */
-      );
-
-  if (channel == NULL) {
-    fprintf(stderr, "Unable to create the channel..\n");
-    return 1;
+  for(i = 0; i < PAR; i++) {
+    vortex_channel_new(connection, 0,
+	profile,
+	NULL, NULL, /* no close handling */
+	on_frame, NULL,
+	on_start, NULL
+	);
   }
 
-  vortex_channel_set_complete_flag(channel, 1);
-  vortex_channel_set_automatic_mime(channel, 2);
+  // this is awful, but vortex appears to have no API for his
+  { char c; read(0, &c, 1); }
 
-  printf(".. send msg\n");
-
-  t0 = time(NULL);
-
-  send_msg(channel);
-  send_msg(channel);
-
-  {
-    char c;
-    read(0, &c, 1);
-  }
   vortex_exit ();
 
   return 0 ;         

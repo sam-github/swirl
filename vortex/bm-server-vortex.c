@@ -6,8 +6,8 @@
 
 #define CHANMAX 20
 int msgsz[CHANMAX];
-// Hopefully all channels are less CHANMAX, but I'm not building a dynamic data
-// structure for this.
+// Hopefully all channels are less CHANMAX, since I'm not building a dynamic
+// data structure for a trivial benchmark app.
 
 void frame_received(VortexChannel* chan, VortexConnection* conn, VortexFrame* frame, void*v)
 {
