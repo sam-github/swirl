@@ -114,6 +114,56 @@ function pump(i, l, quiet)
   end
 end
 
+print"\n\n=== test msg send w/reused seq numbers"
+
+do
+  local ok
+
+  i = create{il="I",
+    on_rpy=function(frame)
+      print("on_rpy", frame)
+      ok = frame:messageno()
+    end,
+  }
+  l = create{il="L"}
+
+  pump(i,l)
+
+  chno = i:start{
+    profiles={{uri="http://example.org/beep/echo", content="CONTENT"}},
+    servername="SERVERNAME",
+  }
+
+  pump(i,l)
+
+  msgno = i:_frame_send(chno, "MSG", "hello, world", 0, nil, false)
+
+  pump(i,l)
+
+  assert(ok == 0)
+
+  msgno = i:_frame_send(chno, "MSG", "hello, world", 0, nil, false)
+
+  pump(i,l)
+
+  assert(ok == 0)
+
+  msgno = i:_frame_send(chno, "MSG", "hello, world", 1, nil, false)
+
+  pump(i,l)
+
+  assert(ok == 1)
+
+  msgno = i:_frame_send(chno, "MSG", "hello, world", 0, nil, false)
+
+  pump(i,l)
+
+  assert(ok == 0)
+
+end
+
+os.exit(0)
+
 print"\n\n=== test independence of core env"
 
 do

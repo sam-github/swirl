@@ -351,13 +351,17 @@ msg is the data to be sent
 ]]
 -- TODO - it would be possible to allow partial send_msg, if msgno and more are provided
 function methods:send_msg(chno, msg)
+  -- msgno must be in range of 0..0x7fffffff (says RFC3080)
   chno = assert(tonumber(chno), "chno is not a number")
   assert(chno > 0, "chno is not greater than zero")
   -- We are responsible for allocating message numbers, lets make them increase
   -- sequentially within a channel.
-  local msgno = self._msgno[chno] or 1
+  -- Note that some implementations assume that msgno starts at 1, and goes up in
+  -- increments of 1. This assumption is wrong, but try to make them happy.
+  local msgno = self._msgno[chno] or 101
+  --local msgno = self._msgno[chno] or (0x7fffffff - 1) -- force wrapping
   self:_frame_send(chno, "MSG", msg, msgno, nil, more)
-  self._msgno[chno] = msgno + 1
+  self._msgno[chno] = (msgno + 1) % (0x7fffffff + 1)
   return msgno
 end
 
