@@ -455,7 +455,7 @@ static struct channel * channel_create(struct session * sess, long channel_numbe
   c->commit_frame = NULL;
   c->sent = NULL;
   c->rcvd = NULL;
-  c->apparent_out_window = 4096;
+/*c->apparent_out_window = 4096;*/
   c->cur_out_msg_type = ' ';
   c->cur_out_msg_number = -1;
   c->prev_in_msg_type = ' ';
@@ -1554,7 +1554,7 @@ void bll_channel_debug_print(struct channel * c, FILE * file) {
   fprintf(file, "    commit_frame:\n");
   bll_frame_debug_print(c->commit_frame, file);
 
-  fprintf(file, "    apparent out window: %ld\n", c->apparent_out_window);
+/*fprintf(file, "    apparent out window: %ld\n", c->apparent_out_window); SR - unimplimented*/
   fprintf(file, "    cur_out_msg type='%c', number=%ld\n", c->cur_out_msg_type, c->cur_out_msg_number);
   fprintf(file, "    cur_in_seq=%lu\n", c->cur_in_seq);
   fprintf(file, "    max_in_seq=%lu\n", c->max_in_seq);
@@ -1771,6 +1771,8 @@ void * blu_session_info_get(struct session * s) {
   return s->session_info;
 }
 
+#if 0
+/*SR - unimplimented*/
   /* This returns the largest recent outgoing window size. */
 long blu_peer_window_maximum_get(struct session * s, long channel_number) {
   struct channel * c;
@@ -1785,6 +1787,7 @@ long blu_peer_window_maximum_get(struct session * s, long channel_number) {
   }
   return c->apparent_out_window;
 }
+#endif
 
   /* This returns true if the frame is a match, false otherwise */
 static int match_frame(struct frame * f, char msg_type, long msgno, long ansno, char more) {

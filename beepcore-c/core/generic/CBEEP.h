@@ -699,9 +699,11 @@ long blu_peer_window_current_get(
   long channel);
 
   /* This returns the largest recent outgoing window size. */
+/* SR - unimplimented
 long blu_peer_window_maximum_get(
   struct session * session,
   long channel);
+*/
 
 void bll_session_debug_print(struct session *s, FILE *f);
 

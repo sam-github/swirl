@@ -127,7 +127,7 @@ struct channel {
   struct frame * commit_frame; /* The frame currently being sent */
   struct uamn * sent; /* First on list is first to be answered */
   struct uamn * rcvd; /* First on list is first to be answered */
-  long apparent_out_window; /* The biggest the sending window has been recently */
+/*long apparent_out_window; SR unimplemented */ /* The biggest the sending window has been recently */
   char cur_out_msg_type;   /* The type of the message we're currently sending */
   long cur_out_msg_number; /* The number of the message we're currently sending */
   char prev_in_msg_type;   /* The type of the message we just received */
