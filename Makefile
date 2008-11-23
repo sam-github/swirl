@@ -9,20 +9,23 @@ include config
 .PHONY: beepcore
 
 LBEEP = beepcore-c/lib/libbeepcore.a
-HBEEP = beepcore-c/include
+IBEEP = beepcore-c/include
 
-beepcore: beepcore-c/lib beepcore-c/include $(LBEEP) $(HBEEP)/CBEEP.h
+beepcore: beepcore-c/lib beepcore-c/include $(LBEEP) $(IBEEP)/CBEEP.h
 
 beepcore-c/lib beepcore-c/include:
 	$(MKDIR) $@
 
 CBEEP = $(wildcard beepcore-c/core/generic/*.c) $(wildcard beepcore-c/utility/*.c)
+HBEEP = $(wildcard beepcore-c/core/generic/*.h) $(wildcard beepcore-c/utility/*.h)
 OBEEP = $(CBEEP:.c=.o)
+
+$(OBEEP): $(HBEEP)
 
 $(LBEEP): $(OBEEP)
 	$(AR) -r $@ $^
 
-$(HBEEP)/CBEEP.h: beepcore-c/core/generic/CBEEP.h
+$(IBEEP)/CBEEP.h: beepcore-c/core/generic/CBEEP.h
 	$(CP) $< $@
 
 
