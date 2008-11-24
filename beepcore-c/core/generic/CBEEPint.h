@@ -46,8 +46,8 @@ struct session {
   long status_channel;
   long memory_limit;
   long memory_used;
-  int frame_pre;  /* Extra memory allocation */
-  int frame_post; /* Extra memory allocation */
+  int frame_pre;  /* Extra memory allocation */ /* SR - unused!*/
+  int frame_post; /* Extra memory allocation */ /* SR - unused!*/
   char IL;
   long close_status; /* if not -1, the message_number of the c0 message closing the session */
   long next_channel;
@@ -63,6 +63,7 @@ struct session {
   char * localize; /* points to remote greeting */
   void * session_info;
   struct channel * channel;
+  int max_frame_size;
   char seq_buf[80];  /* Holds outgoing SEQ messages */
   char head_buf[80]; /* Holds outgoing frame headers */
   char read_buf[80]; /* Holds incoming frame headers */
@@ -124,6 +125,8 @@ struct channel {
   long c0_message_number;  /* The message number starting or closing this channel */
   struct frame * in_frame; /* first unobtained incoming frame */
   struct frame * out_frame; /* first uncommitted outgoing frame */
+    /* blu_frame_send puts its frames on uncommitteed list, internally linked
+     * by their next_on_channel pointer */
   struct frame * commit_frame; /* The frame currently being sent */
   struct uamn * sent; /* First on list is first to be answered */
   struct uamn * rcvd; /* First on list is first to be answered */
@@ -134,6 +137,7 @@ struct channel {
   long prev_in_msg_number; /* The number of the message we just received */
   char prev_in_msg_more;   /* Whether previous message was continued */
 
+  /* see find_best_seq_to_send for description of below */
   unsigned long cur_in_seq;  /* The next sequence number expected on input */
   unsigned long max_in_seq;  /* The largest sequence number we've permitted in a sent SEQ */
   unsigned long cur_in_buf;  /* The number of bytes currently buffered. */

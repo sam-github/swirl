@@ -390,6 +390,8 @@ struct chan_start_rpy {
 };
 
 /* structure containing elements for a greeting */
+#if 0
+/* SR unused */
 struct greeting {
     struct session* session;   /* session for greeting */
     struct profile* profiles;  /* profiles advertised on this greeting */
@@ -397,6 +399,7 @@ struct greeting {
     char* features;            /* features supported */
     char* localize;            /* desired language tags */
 };
+#endif
 
 /* structure containing elements for a channel close */
 struct chan_close {
@@ -693,13 +696,20 @@ long blu_local_window_set(
   long channel,
   long window);
 
+  /* This sets the maximum size of an outgoing frame. It should be set
+   * to 2/3 of TCP's MSS. MSS is usually 1448 for ethernet.
+   */
+void blu_max_frame_size_set(
+  struct session * session,
+  int frame_size);
+
   /* This returns the current outgoing window size available. */
 long blu_peer_window_current_get(
   struct session * session,
   long channel);
 
   /* This returns the largest recent outgoing window size. */
-/* SR - unimplimented
+/* SR - unimplemented
 long blu_peer_window_maximum_get(
   struct session * session,
   long channel);

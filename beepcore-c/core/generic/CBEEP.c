@@ -655,11 +655,26 @@ static void fmt_head(struct session * s, struct channel * c,
      max_in_seq is from the most recent SEQ sent:
        the ackno is added to the window to get this value.
      cur_in_seq is the next sequence number expected.
-     Hence, max_in_buf-cur_in_buf is the space left in the buffer.
+     Hence,
+       max_in_buf-cur_in_buf is the space left in the buffer.
        max_in_seq-cur_in_seq is the space left in the stream.
        buffer space - stream space is the value to find the biggest of.
      */
   /* BUGGY! THIS ASSUMES NO 2^32-1 WRAPPING! Use "long long" here? */
+/*
+SR - this always sends a SEQ (which can trigger SWS), and never sends multiple
+SEQ (bad if you actually have lots of channels, it would seem to me).
+
+Also, I think the SEQ buffer should be built on reception of a frame:
+
+  each time a frame is received, a SEQ frame should be sent whenever the window
+  size that will be sent is at least one half of the buffer space available to
+  this channel; and,
+
+    - RFC3081, 3.2.4
+
+That section has other advice which is not being followed here.
+*/
 static void find_best_seq_to_send(struct session * s) {
   struct channel * best; /* Best */
   struct channel * test; /* test */
@@ -1093,6 +1108,7 @@ struct session * bll_session_create(
 
   newsession = (*malloc)(sizeof(struct session));
   if (newsession == NULL) return NULL;
+  memset(newsession, 0, sizeof(*newsession));
   newsession->out_buffer.vec_count = 0;
   newsession->in_buffer.vec_count = 1;
   newsession->in_buffer.iovec[0].iov_len = sizeof(newsession->read_buf)-2;
@@ -1380,12 +1396,34 @@ if (c -> commit_frame) {
     }
     c = c->next;
   }
+/*
+SR
+
+Both schemes above ignore RFC3081, 3.1.4:
+
+  frames for different channels with traffic ready to send should be sent in a
+  round-robin fashion
+
+Though it is true that chan0 needs special attention.
+*/
 
   /* Now b points to the best channel to send a frame from. */
   if (b && b->commit_frame && ul_lt(b->cur_out_seq, b->max_out_seq)) {
     long size; int v;
     /* @$@$ Here is where you have to patch in pre- and post-frame processing */
     size = b->max_out_seq - b->cur_out_seq;
+    /* RFC3081, 3.1.4:
+     * large messages should be segmented into frames no larger than two-thirds of
+     * TCP's negotiated maximum segment size
+     *
+     * TODO - doing it this way causes us to do a round-trip through swirl, and
+     * write(2) for every frame. What should be done is the iovec should be used
+     * to put window size worth of data into a series of 2/3 MSS frames, which
+     * then all get sent in a single writev().
+     */
+    if(s->max_frame_size && size > s->max_frame_size) {
+      size = s->max_frame_size;
+    }
     if (b->commit_frame->size < size) size = b->commit_frame->size;
     fmt_head(s, b, b->commit_frame, size);
     v = s->out_buffer.vec_count;
@@ -1641,19 +1679,34 @@ struct frame * blu_frame_create(struct session * s, size_t size) {
   return f;
 }
 
+/*TODO - use this everywhere */
+static
+struct channel* channel_by_no(struct session * s, long channel_number)
+{
+  struct channel* c;
+
+  PRE(s != NULL);
+  PRE(0 <= channel_number);
+
+  c = s->channel;
+
+  ASSERT(c != NULL);
+
+  while (c && c->channel_number != channel_number) 
+    c = c->next;
+
+  return c;
+}
+
 long blu_local_window_set(struct session * s, long channel_number, long window) {
   long old_window;
   struct channel * c;
 
-  PRE(s != NULL);
-  PRE(0 <= channel_number);
   PRE(-1 <= window);
   PRE(window < MAXWIN);
 
-  c = s->channel;
-  ASSERT(c != NULL);
-  while (c != NULL && c->channel_number != channel_number) 
-    c = c->next;
+  c = channel_by_no(s, channel_number);
+
   if (c == NULL) {
     s->status_channel = channel_number;
     FAULT(s, -4, "Setting window on closed channel");
@@ -1666,6 +1719,14 @@ long blu_local_window_set(struct session * s, long channel_number, long window) 
     (*(s->notify_lower))(s, 3);
   }
   return old_window;
+}
+
+void blu_max_frame_size_set(struct session * s, int frame_size) {
+  PRE(s != NULL);
+  PRE(-1 <= frame_size);
+  PRE(frame_size < MAXWIN);
+
+  s->max_frame_size = frame_size;
 }
 
 void blu_frame_destroy(struct frame * f) {

@@ -326,6 +326,9 @@ The core this object belongs to.
 -- status = core:chan_status(chno)
 
 
+-- core:set_frame_size(size)
+
+
 
 
 ** swirlsock - extends the swirl module to allow using the socket module

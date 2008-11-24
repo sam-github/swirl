@@ -8,7 +8,7 @@ require"swirlsock"
 
 -- Arguments
 
-USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT] [seq=INT] [par=INT]"
+USAGE = "usage: "..arg[0].." port=INT [host=STR] [time=INT] [size=INT] [seq=INT] [par=INT] [framesz=INT]"
 
 arg.host     = "localhost"
 arg.time     = 5
@@ -20,6 +20,9 @@ argp.expand(arg)
 
 arg.port = assert(tonumber(arg.port), "no port\n"..USAGE)
 arg.time = assert(tonumber(arg.time))
+
+arg[0] = nil
+arg[-1] = nil
 
 print("options: "..quote.quote(arg))
 
@@ -41,6 +44,11 @@ function null.on_connected(core)
   trace(".. on_connected")
   null.core = core
   core.user = 0 -- total bytes acknowledged to have been transferred
+
+  if arg.framesz then
+    core:set_frame_size(arg.framesz)
+  end
+
   for _=1,arg.par do
     assert(core:start(NULL))
   end
@@ -77,8 +85,10 @@ function null.on_rpy(frame)
   t1 = os.time()
 
   if t1 - t0 > arg.time then
-    t = t1 - t0
-    print("seq", arg.seq, "par", arg.par, "b", core.user, "t", t, "rate", core.user/1000/t, "kB/s")
+    local t = t1 - t0
+    local kbs = math.modf(core.user/1000/t)
+
+    print("seq", arg.seq, "par", arg.par, "b", core.user, "t", t, "rate", kbs, "kB/s")
     os.exit(0)
   end
 

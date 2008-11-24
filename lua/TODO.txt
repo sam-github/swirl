@@ -1,5 +1,9 @@
 Todo:
 
+- beepcore-c
+  - remove pre and post frame size
+  - getsockopt() TCP_MAXSEG
+
 - sockext:
   - implement setfd trick to do non-blocking reads from stdin,
   - use above trick for ex-chat

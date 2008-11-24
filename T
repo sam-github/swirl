@@ -8,5 +8,5 @@ x="$A $V $B $L"
 # --file-tags=yes   Same as --extra=+f  ?
 # --extra=+g   Unsupported?
 
-ctags --if0=yes --file-tags=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm --c-kinds=+p $x .
+ctags --if0=yes --file-tags=yes --recurse --extra=+fq --fields=+i --ruby-kinds=+cfFm --c-kinds=+p $x beepcore-c/core lua vortex
 

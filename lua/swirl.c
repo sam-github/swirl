@@ -1057,6 +1057,18 @@ static int core_chan_status(lua_State* L)
   return 1;
 }
 
+/*-
+-- core:set_frame_size(size)
+*/
+static int core_set_frame_size(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int frame_size = luaL_checkint(L, 2);
+
+  blu_max_frame_size_set(c->s, frame_size);
+  return 0;
+}
+
 static const struct luaL_reg core_methods[] = {
   { "__index",            v_fenv_index },
   { "__newindex",         v_fenv_newindex },
@@ -1072,6 +1084,7 @@ static const struct luaL_reg core_methods[] = {
   { "_frame_send",        core_frame_send },
   { "status",             core_status },
   { "chan_status",        core_chan_status },
+  { "set_frame_size",     core_set_frame_size },
   { NULL, NULL }
 };
 
