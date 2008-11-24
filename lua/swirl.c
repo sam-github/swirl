@@ -1057,6 +1057,17 @@ static int core_chan_status(lua_State* L)
   return 1;
 }
 
+static int core_set_window(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int chno = luaL_checkint(L, 2);
+  int window = luaL_checkint(L, 3);
+
+  blu_local_window_set(c->s, chno, window);
+
+  return 0;
+}
+
 static const struct luaL_reg core_methods[] = {
   { "__index",            v_fenv_index },
   { "__newindex",         v_fenv_newindex },
@@ -1072,6 +1083,7 @@ static const struct luaL_reg core_methods[] = {
   { "_frame_send",        core_frame_send },
   { "status",             core_status },
   { "chan_status",        core_chan_status },
+  { "set_window",         core_set_window },
   { NULL, NULL }
 };
 

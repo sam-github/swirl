@@ -8,7 +8,7 @@ require"swirlsock"
 
 -- Arguments
 
-USAGE = "usage: "..arg[0].." port=INT [verbose=yes|very]"
+USAGE = "usage: "..arg[0].." port=INT [verbose=yes|very] [window=INT]"
 
 argp.expand(arg)
 
@@ -37,8 +37,13 @@ end
 
 function null.on_start(ch0)
   trace(".. on_start")
-  ch0:core().user[ch0:channelno()] = 0
+  local core = ch0:core()
+  local chno = ch0:channelno()
+  core.user[chno] = 0
   ch0:accept(NULL)
+  if arg.window then
+    core:set_window(chno, arg.window)
+  end
 end
 
 function null.on_msg(frame)
