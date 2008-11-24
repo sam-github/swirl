@@ -1059,6 +1059,11 @@ static int core_chan_status(lua_State* L)
 
 /*-
 -- core:set_frame_size(size)
+
+Set the outgoing maximum frame size. RFC3081 recommends setting it to
+2/3 of the MSS, so 1000 would be a good choice for ethernet.
+
+In practice, unless your network is very low latency, its irrelevant.
 */
 static int core_set_frame_size(lua_State* L)
 {
@@ -1066,6 +1071,31 @@ static int core_set_frame_size(lua_State* L)
   int frame_size = luaL_checkint(L, 2);
 
   blu_max_frame_size_set(c->s, frame_size);
+
+  return 0;
+}
+
+/*-
+-- core:set_window_size(chno, window)
+
+Set the window size for incoming data on channel.
+
+It should be large enough that the sender never has to
+stop writing because the window is full. How large depends
+on the round-trip-time between sender and receiver.
+
+If you intend to do bulk data transfer, something like 1000000 would be
+reasonable, and the sender should take care to keep that many outgoing
+(unreplied) messages active.
+*/
+static int core_set_window(lua_State* L)
+{
+  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  int chno = luaL_checkint(L, 2);
+  int window = luaL_checkint(L, 3);
+
+  blu_local_window_set(c->s, chno, window);
+
   return 0;
 }
 
@@ -1085,6 +1115,7 @@ static const struct luaL_reg core_methods[] = {
   { "status",             core_status },
   { "chan_status",        core_chan_status },
   { "set_frame_size",     core_set_frame_size },
+  { "set_window",         core_set_window },
   { NULL, NULL }
 };
 
