@@ -69,3 +69,19 @@ install:
 	$(CP) $(LLUA) $(INSTALL_TOP_LIB)
 	$(CP) $(LSHARE) $(INSTALL_TOP_SHARE)
 
+# ---
+.PHONY: release
+
+FILES=lua beepcore-c/core/generic beepcore-c/utility config* Makefile MANIFEST.txt README.txt
+VERSION=$(shell date -u "+%y.%m.%d")
+BASE=swirl-$(VERSION)
+TGZ=../$(BASE).tgz
+
+release:
+	git archive --prefix=swirl-$(VERSION)/ HEAD $(FILES) | gzip > $(TGZ)
+
+release-test: release
+	rm -rf ../$(BASE)
+	cd ..; tar -xvf $(BASE).tgz
+	cd ../$(BASE) && $(MAKE)
+

@@ -78,4 +78,7 @@ http://www.tecgraf.puc-rio.br/luasocket/
 Please direct suggestions, patches, offers to pay for continued development,
 etc., to Sam Roberts <vieuxtech@gmail.com>
 
+Project is hosted via git, see:
+
+  http://github.com/sam-github/swirl/tree/master
 
