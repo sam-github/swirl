@@ -3,6 +3,8 @@ Swirl - implementation of BEEP for Lua
 
 * About
 
+BEEP is a "protocol kernel" useful for implementing application protocols.
+
 This is a binding of beepcore-c into Lua 5.1, wrapped in a more user-friendly
 API implemented directly in Lua.
 
@@ -14,6 +16,22 @@ However, as an example of usage, and because its useful for me, an event loop
 based implementation on top of LuaSocket is included, along with some LuaSocket
 extensions to select on arbitary file descriptors, and read raw data from
 sockets.
+
+
+* Availability
+
+Package:
+
+  http://luaforge.net/projects/swirl/
+
+Source:
+
+  http://github.com/sam-github/swirl/tree/master
+
+
+* License
+
+MIT style, the same as Lua.
 
 
 * Plans
@@ -77,8 +95,4 @@ http://www.tecgraf.puc-rio.br/luasocket/
 
 Please direct suggestions, patches, offers to pay for continued development,
 etc., to Sam Roberts <vieuxtech@gmail.com>
-
-Project is hosted via git, see:
-
-  http://github.com/sam-github/swirl/tree/master
 
