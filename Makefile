@@ -41,12 +41,12 @@ LLUA=lua/$(SOSWIRL)
 
 CFLAGS+=-Ibeepcore-c/include
 
-swirl: $(LLUA) lua/API.txt
+swirl: beepcore $(LLUA) lua/API.txt
 
 lua/API.txt: lua/swirl.lua lua/swirl.c lua/swirlsock.lua lua/sockext.lua
 	-ldoc $^ > $@_ && mv $@_ $@
 
-test: $(LLUA)
+test: swirl
 	cd lua && lua gc-test
 	cd lua && lua core-test
 	cd lua && lua quote-test
@@ -83,5 +83,5 @@ release:
 release-test: release
 	rm -rf ../$(BASE)
 	cd ..; tar -xvf $(BASE).tgz
-	cd ../$(BASE) && $(MAKE)
+	cd ../$(BASE) && $(MAKE) test
 
