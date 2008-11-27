@@ -52,7 +52,7 @@ portions of the library, and is implemented directly on the "core".
 
 * Vortex
 
-A previous attempt at Swirl had attempted to bind Vortex into lua. However, the
+A previous attempt at Swirl had attempted to bind Vortex into Lua. However, the
 pervasive multi-threaded nature of Vortex proved to difficult to deal with. I
 had to attempt to make Vortex look single-threaded to the Lua interpreter. This
 was quite difficult because Vortex is heavily callback based, but the callbacks
