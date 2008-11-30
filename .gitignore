@@ -1,0 +1,14 @@
+*.[oa]
+*.dSYM
+*.so
+*~
+.*.swp
+_*
+beepcore-c/include
+beepcore-c/lib
+nohup.out
+tags
+vortex/async-client
+vortex/async-server
+vortex/bm-client-vortex
+vortex/bm-server-vortex
