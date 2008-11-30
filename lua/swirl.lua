@@ -357,9 +357,8 @@ function methods:send_msg(chno, msg)
   -- We are responsible for allocating message numbers, lets make them increase
   -- sequentially within a channel.
   -- Note that some implementations assume that msgno starts at 1, and goes up in
-  -- increments of 1. This assumption is wrong, but try to make them happy.
-  local msgno = self._msgno[chno] or 101
-  --local msgno = self._msgno[chno] or (0x7fffffff - 1) -- force wrapping
+  -- increments of 1. This assumption is wrong, but we'll do it that way, too.
+  local msgno = self._msgno[chno] or 1
   self:_frame_send(chno, "MSG", msg, msgno, nil, more)
   self._msgno[chno] = (msgno + 1) % (0x7fffffff + 1)
   return msgno
