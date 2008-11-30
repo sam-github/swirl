@@ -5,7 +5,7 @@ Swirl - BEEP for Lua, a binding of beepcore-c
 
 BEEP is a "protocol kernel" useful for implementing application protocols.
 
-This is a binding of beepcore-c into Lua 5.1, wrapped in a more user-friendly
+Swirl is a binding of beepcore-c into Lua 5.1, wrapped in a more user-friendly
 API implemented directly in Lua.
 
 Swirl has no dependency on any particular TCP APIs. It can be used with any,
