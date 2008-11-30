@@ -61,8 +61,8 @@ int main(int argc, char ** argv)
 
   vortex_init();
 
-  vortex_log_enable(1);
-  vortex_log2_enable(1);
+  /*vortex_log_enable(1);*/
+  /*vortex_log2_enable(1);*/
 
   vortex_profiles_register(NULL_PROFILE,
       start_channel, NULL,
