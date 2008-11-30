@@ -70,15 +70,28 @@ install:
 	$(CP) $(LSHARE) $(INSTALL_TOP_SHARE)
 
 # ---
-.PHONY: release
+.PHONY: tag release release-test
 
-FILES=lua beepcore-c/core/generic beepcore-c/utility config* Makefile MANIFEST.txt README.txt
+FILES=\
+ lua\
+ beepcore-c/core/generic\
+ beepcore-c/utility\
+ beepcore-c/COPYRIGHT\
+ config*\
+ Makefile\
+ MANIFEST.txt\
+ README.txt
 VERSION=$(shell date -u "+%y.%m.%d")
 BASE=swirl-$(VERSION)
 TGZ=../$(BASE).tgz
+TAG=v$(VERSION)
+TAGMSG="version $(TAG)"
 
-release:
-	git archive --prefix=swirl-$(VERSION)/ HEAD $(FILES) | gzip > $(TGZ)
+tag:
+	git tag -f -m $(TAGMSG) $(TAG) master
+
+release: tag
+	git archive --prefix=swirl-$(VERSION)/ $(TAG) $(FILES) | gzip > $(TGZ)
 
 release-test: release
 	rm -rf ../$(BASE)

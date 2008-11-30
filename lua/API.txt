@@ -328,6 +328,24 @@ The core this object belongs to.
 
 -- core:set_frame_size(size)
 
+Set the outgoing maximum frame size. RFC3081 recommends setting it to
+2/3 of the MSS, so 1000 would be a good choice for ethernet.
+
+In practice, unless your network is very low latency, its irrelevant.
+
+
+-- core:set_window_size(chno, window)
+
+Set the window size for incoming data on channel.
+
+It should be large enough that the sender never has to
+stop writing because the window is full. How large depends
+on the round-trip-time between sender and receiver.
+
+If you intend to do bulk data transfer, something like 1000000 would be
+reasonable, and the sender should take care to keep that many outgoing
+(unreplied) messages active.
+
 
 
 
