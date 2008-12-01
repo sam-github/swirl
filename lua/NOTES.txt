@@ -125,3 +125,84 @@ tcpdump: listening on en0, link-type EN10MB (Ethernet), capture size 96 bytes
 10813 packets received by filter
 0 packets dropped by kernel
 
+
+
+
+
+
+
+
+
+At work:
+
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10
+options: {[-1]="lua", port=3333, time=5, [0]="./bm-client-raw", host="unit10", size=5000}
+tcp     b       3781512 t       6       rate    630.252 kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=10000
+options: {[-1]="lua", port=3333, time=5, [0]="./bm-client-raw", host="unit10", size="10000"}
+tcp     b       4078000 t       6       rate    679.66666666667 kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=20000
+options: {[-1]="lua", port=3333, time=5, [0]="./bm-client-raw", host="unit10", size="20000"}
+tcp     b       4375840 t       6       rate    729.30666666667 kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=30000
+options: {[-1]="lua", port=3333, time=5, [0]="./bm-client-raw", host="unit10", size="30000"}
+tcp     b       4106952 t       6       rate    684.492 kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=5000 time=15
+options: {[-1]="lua", port=3333, time=15, [0]="./bm-client-raw", host="unit10", size="5000"}
+tcp     b       12534512        t       16      rate    783.407 kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=10000 time=15
+options: {[-1]="lua", port=3333, time=15, [0]="./bm-client-raw", host="unit10", size="10000"}
+tcp     b       12541304        t       16      rate    783.8315        kb/s
+~/s/swirl/git-swirl/lua % ./bm-client-raw port=3333 host=unit10 size=30000 time=15
+options: {[-1]="lua", port=3333, time=15, [0]="./bm-client-raw", host="unit10", size="30000"}
+tcp     b       12049048        t       16      rate    753.0655        kb/s
+
+
+
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 size=5000 time=15
+options: {port=3333, time=15, host="unit10", par=1, seq=2, size="5000"}
+seq     2       par     1       b       12895000        t       16      rate    805     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 size=5000 time=5
+options: {port=3333, time=5, host="unit10", par=1, seq=2, size="5000"}
+seq     2       par     1       b       5005000 t       6       rate    834     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=5 size=10000
+options: {port=3333, time=5, host="unit10", par=1, seq=2, size="10000"}
+seq     2       par     1       b       4440000 t       6       rate    740     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=5 size=10000
+options: {port=3333, time=5, host="unit10", par=1, seq=2, size="10000"}
+seq     2       par     1       b       4530000 t       6       rate    755     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=5 size=5000
+options: {port=3333, time=5, host="unit10", par=1, seq=2, size="5000"}
+seq     2       par     1       b       4710000 t       6       rate    785     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=5 size=10000 seq=3
+options: {port=3333, time=5, host="unit10", par=1, seq="3", size="10000"}
+seq     3       par     1       b       4780000 t       6       rate    796     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=3
+options: {port=3333, time=10, host="unit10", par=1, seq="3", size="10000"}
+seq     3       par     1       b       9180000 t       11      rate    834     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=4
+options: {port=3333, time=10, host="unit10", par=1, seq="4", size="10000"}
+seq     4       par     1       b       9140000 t       11      rate    830     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=5
+options: {port=3333, time=10, host="unit10", par=1, seq="5", size="10000"}
+seq     5       par     1       b       9160000 t       11      rate    832     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=6
+options: {port=3333, time=10, host="unit10", par=1, seq="6", size="10000"}
+seq     6       par     1       b       8980000 t       11      rate    816     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=1
+options: {port=3333, time=10, host="unit10", par=1, seq="1", size="10000"}
+seq     1       par     1       b       8370000 t       11      rate    760     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=20
+options: {port=3333, time=10, host="unit10", par=1, seq="20", size="10000"}
+seq     20      par     1       b       8910000 t       11      rate    810     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=10000 seq=2
+options: {port=3333, time=10, host="unit10", par=1, seq="2", size="10000"}
+seq     2       par     1       b       8610000 t       11      rate    782     kB/s
+~/s/swirl/git-swirl/lua % ./bm-client port=3333 host=unit10 time=10 size=50000 seq=2
+options: {port=3333, time=10, host="unit10", par=1, seq="2", size="50000"}
+seq     2       par     1       b       7600000 t       11      rate    690     kB/s
+
+
+
+
+
