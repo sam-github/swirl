@@ -79,7 +79,6 @@ FILES=\
  beepcore-c/COPYRIGHT\
  config*\
  Makefile\
- MANIFEST.txt\
  README.txt
 VERSION=$(shell date -u "+%y.%m.%d")
 BASE=swirl-$(VERSION)
