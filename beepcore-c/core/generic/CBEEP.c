@@ -1104,7 +1104,12 @@ struct session * bll_session_create(
   char * mime = "Content-Type: application/beep+xml\r\n\r\n";
   char * payload;
 
+#if 0
+  /* Swirl unit tests pass on a machine with 64-bit longs, this doesn't seem
+   * necessary.
+   */
   ASSERT(sizeof(long) == 4); /* Sorry about that. */
+#endif
 
   newsession = (*malloc)(sizeof(struct session));
   if (newsession == NULL) return NULL;
