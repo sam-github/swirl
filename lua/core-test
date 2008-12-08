@@ -114,6 +114,25 @@ function pump(i, l, quiet)
   end
 end
 
+
+print"\n\n=== test that correct L is used"
+
+do
+  local f = coroutine.wrap(
+  function ()
+    i = create{il="I"}
+    l = create{il="L"}
+  end)
+  f()
+  f = nil
+  collectgarbage()
+end
+
+pump(i,l)
+
+i:status()
+
+
 print"\n\n=== test msg send w/reused seq numbers"
 
 do

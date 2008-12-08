@@ -601,13 +601,20 @@ static const struct luaL_reg core_frame_methods[] = {
 struct Core
 {
   struct session* s;
-
   // Can probably just be a struct session**, now, with it's user pointer being
   // the lua_State
   lua_State* L;
 };
 
 typedef struct Core* Core;
+
+static Core core_get_udata(lua_State* L, int idx)
+{
+  Core c = luaL_checkudata(L, idx, CORE_REGID);
+  if(c)
+    c->L = L;
+  return c;
+}
 
 static lua_State* core_get_cb(struct session* s, const char* name)
 {
@@ -779,7 +786,7 @@ static int core_create(lua_State* L)
 
 static int core_gc(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
 
   //fprintf(stdout, "gc core %p\n", lua_topointer(L, 1));
 
@@ -793,7 +800,7 @@ static int core_gc(lua_State* L)
 
 static int core_tostring(lua_State* L)
 {
-  luaL_checkudata(L, 1, CORE_REGID);
+  core_get_udata(L, 1);
 
   lua_pushfstring(L, "%s: %p", CORE_REGID, lua_topointer(L, 1));
 
@@ -802,7 +809,7 @@ static int core_tostring(lua_State* L)
 
 static int core_pull(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   struct beep_iovec* biv = bll_out_buffer(c->s);
 
   if(!biv)
@@ -828,7 +835,7 @@ static int core_pull(lua_State* L)
 
 static int core_pulled(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int sz = luaL_optinteger(L, 2, 0);
 
   bll_out_count(c->s, sz);
@@ -846,7 +853,7 @@ static size_t min(size_t a, size_t b)
 
 static int core_push(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   size_t bufsz = 0;
   const char* buf = luaL_checklstring(L, 2, &bufsz);
   const char* end = buf + bufsz;
@@ -879,7 +886,7 @@ static int core_push(lua_State* L)
 
 static int core_frame_read(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int chno = luaL_optint(L, 2, -1);
   struct frame* f = blu_frame_read(c->s, chno);
   if(!f)
@@ -890,7 +897,7 @@ static int core_frame_read(lua_State* L)
 
 static int core_chan0_read(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   struct chan0_msg* ch0 = blu_chan0_in(c->s);
   if(!ch0)
     lua_pushnil(L);
@@ -945,7 +952,7 @@ Supposed to be handled internal to beepcore, though I think that handling is bug
 
 static int core_chan_start(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   struct chan0_msg chan0 = { 0 };
   chan0.server_name = (char*) luaL_optstring(L, 3, NULL);
   chan0.channel_number = luaL_optinteger(L, 4, -1);
@@ -988,7 +995,7 @@ emsg and elang default to none
 */
 static int core_chan_close(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int chno = luaL_checkint(L, 2);
 
   struct diagnostic diagnostic;
@@ -1008,7 +1015,7 @@ Low-level frame send API.
 static int core_frame_send(lua_State* L)
 {
   static const char* msgtypes[] = { "MSG", "RPY", "ANS", "NUL", "ERR", NULL };
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int chno = luaL_checkint(L, 2);
   char msgtype = *msgtypes[luaL_checkoption(L, 3, NULL, msgtypes)];
   size_t msgsz = 0;
@@ -1037,7 +1044,7 @@ static int core_frame_send(lua_State* L)
 */
 static int core_status(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   core_push_status(L, c->s);
   return 3;
 }
@@ -1048,7 +1055,7 @@ static int core_status(lua_State* L)
 static int core_chan_status(lua_State* L)
 {
   static const char* opstr[] = { "closed", "hopen", "hclosed", "busy", "answered", "quiescent" };
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int chno = luaL_checkint(L, 2);
   int status = blu_channel_status(c->s, chno);
 
@@ -1067,7 +1074,7 @@ In practice, unless your network is very low latency, its irrelevant.
 */
 static int core_set_frame_size(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int frame_size = luaL_checkint(L, 2);
 
   blu_max_frame_size_set(c->s, frame_size);
@@ -1090,7 +1097,7 @@ reasonable, and the sender should take care to keep that many outgoing
 */
 static int core_set_window(lua_State* L)
 {
-  Core c = luaL_checkudata(L, 1, CORE_REGID);
+  Core c = core_get_udata(L, 1);
   int chno = luaL_checkint(L, 2);
   int window = luaL_checkint(L, 3);
 
